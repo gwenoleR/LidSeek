@@ -313,5 +313,13 @@ def refresh_album(album_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/cancel/album/<album_id>', methods=['POST'])
+def cancel_album_download(album_id):
+    try:
+        db.cancel_download(album_id)
+        return jsonify({'status': 'success', 'message': 'Téléchargement annulé'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8081)

@@ -148,6 +148,22 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        .cancel-button {
+            background-color: #dc3545;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin-left: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .cancel-button:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -183,8 +199,20 @@
                         <div class="download-status status-{{ album.download_status }}">
                             {% if album.download_status == 'pending' %}
                                 En attente de téléchargement
+                                <button 
+                                    class="cancel-button" 
+                                    onclick="cancelDownload('{{ album.id }}')"
+                                >
+                                    Annuler
+                                </button>
                             {% elif album.download_status == 'downloading' %}
                                 Téléchargement en cours ({{ album.completed_tracks }}/{{ album.total_tracks }})
+                                <button 
+                                    class="cancel-button" 
+                                    onclick="cancelDownload('{{ album.id }}')"
+                                >
+                                    Annuler
+                                </button>
                             {% elif album.download_status == 'completed' %}
                                 Téléchargement terminé
                             {% else %}
@@ -251,6 +279,31 @@
             body: new URLSearchParams({
                 'artist_id': new URLSearchParams(window.location.search).get('artist_id') || ''
             })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Erreur : ' + data.error);
+            } else {
+                // Recharger la page pour afficher le nouveau statut
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la requête : ' + error);
+        });
+    }
+
+    function cancelDownload(albumId) {
+        if (!confirm('Êtes-vous sûr de vouloir annuler ce téléchargement ?')) {
+            return;
+        }
+
+        fetch(`/cancel/album/${albumId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
         .then(response => response.json())
         .then(data => {

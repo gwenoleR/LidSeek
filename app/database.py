@@ -166,3 +166,22 @@ class Database:
                 WHERE album_id = ?
             ''', (album_id,))
             return {row[0]: {'status': row[1], 'local_path': row[2]} for row in cursor.fetchall()}
+
+    def cancel_download(self, album_id):
+        """Annule le téléchargement d'un album et de ses pistes."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Supprimer les pistes de l'album
+            cursor.execute('''
+                DELETE FROM tracks
+                WHERE album_id = ?
+            ''', (album_id,))
+            
+            # Supprimer l'album
+            cursor.execute('''
+                DELETE FROM albums
+                WHERE id = ?
+            ''', (album_id,))
+            
+            conn.commit()
