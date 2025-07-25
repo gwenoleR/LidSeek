@@ -4,6 +4,7 @@ import redis
 import requests
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
+from database import Database, DownloadStatus
 
 load_dotenv()
 
@@ -125,10 +126,10 @@ class MusicBrainzFetcher:
                 if front_covers:
                     cover_url = front_covers[0]['image']
         except:
-            # Si on ne peut pas récupérer la couverture, on continue sans
             pass
 
         album_info = {
+            'id': album_id,
             'title': release_group_data.get('title', ''),
             'cover_url': cover_url,
             'tracks': []
@@ -136,7 +137,14 @@ class MusicBrainzFetcher:
 
         for medium in release.get('media', []):
             for track in medium.get('tracks', []):
+                recording = track.get('recording', {})
+                # Générer un ID unique basé sur l'album et la position si aucun ID n'est disponible
+                track_id = (track.get('id') or 
+                          recording.get('id') or 
+                          f"{album_id}-{medium.get('position', '0')}-{track.get('number', '0')}")
+                
                 track_info = {
+                    'id': track_id,
                     'position': track.get('number', ''),
                     'title': track.get('title', ''),
                     'length': track.get('length', 0),
@@ -147,15 +155,16 @@ class MusicBrainzFetcher:
         # Trier les pistes par position
         album_info['tracks'].sort(key=lambda x: x['position'])
         
-        # Mettre en cache
         self.redis_client.setex(cache_key, self.cache_expiration, json.dumps(album_info))
         return album_info
+
 USER_AGENT = f"{os.getenv('USER_AGENT_NAME')}/{os.getenv('USER_AGENT_VERSION')} ({os.getenv('USER_AGENT_EMAIL')})"
 CACHE_EXPIRATION = 24 * 60 * 60  # 24 heures en secondes
 
 app = Flask(__name__)
 redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
 mb_fetcher = MusicBrainzFetcher(USER_AGENT, redis_client, CACHE_EXPIRATION)
+db = Database()
 
 @app.route('/')
 def index():
@@ -171,11 +180,25 @@ def albums():
         mbid = mb_fetcher.get_artist_mbid(artist_name)
         album_list = mb_fetcher.get_albums_for_artist(mbid)
 
+        # Ajouter l'artiste à la base de données
+        db.add_artist(mbid, artist_name)
+
+        # Récupérer le statut de téléchargement pour chaque album
+        for album in album_list:
+            status = db.get_album_status(album['id'])
+            if status:
+                album['download_status'] = status[2]  # status from db
+                album['total_tracks'] = status[3]
+                album['completed_tracks'] = status[4]
+            else:
+                album['download_status'] = None
+
         if 'text/html' in request.headers.get('Accept', ''):
-            return render_template('index.html', results={'artist': artist_name, 'albums': album_list})
+            return render_template('index.html', results={'artist': artist_name, 'mbid': mbid, 'albums': album_list})
 
         return jsonify({
             'artist': artist_name,
+            'mbid': mbid,
             'albums': album_list
         })
 
@@ -187,16 +210,79 @@ def albums():
 @app.route('/album/<album_id>', methods=['GET'])
 def album_details(album_id):
     try:
-        tracks = mb_fetcher.get_album_tracks(album_id)
+        album_info = mb_fetcher.get_album_tracks(album_id)
+        artist_id = request.args.get('artist_id')
+        
+        # Récupérer le statut de l'album
+        status = db.get_album_status(album_id)
+        if status:
+            album_info['download_status'] = status[2]
+            album_info['total_tracks'] = status[3]
+            album_info['completed_tracks'] = status[4]
+        else:
+            album_info['download_status'] = None
+
+        # Récupérer le statut de chaque piste
+        tracks_status = db.get_tracks_status(album_id)
+        for track in album_info['tracks']:
+            if track['id'] in tracks_status:
+                track['download_status'] = tracks_status[track['id']]['status']
+                track['local_path'] = tracks_status[track['id']]['local_path']
+            else:
+                track['download_status'] = None
+                track['local_path'] = None
+            
+        album_info['artist_id'] = artist_id
+        album_info['id'] = album_id
+
         if 'text/html' in request.headers.get('Accept', ''):
-            return render_template('album.html', album_id=album_id, tracks=tracks)
-        return jsonify({
-            'album_id': album_id,
-            'tracks': tracks
-        })
+            return render_template('album.html', album=album_info)
+        return jsonify(album_info)
+
     except Exception as e:
+        error_msg = str(e)
         if 'text/html' in request.headers.get('Accept', ''):
-            return render_template('album.html', error=str(e))
+            # Créer un album vide avec juste l'erreur pour le template
+            empty_album = {
+                'id': album_id,
+                'title': 'Erreur',
+                'tracks': [],
+                'error': error_msg
+            }
+            return render_template('album.html', album=empty_album)
+        return jsonify({'error': error_msg}), 500
+
+@app.route('/download/album/<album_id>', methods=['POST'])
+def queue_album_download(album_id):
+    try:
+        album_info = mb_fetcher.get_album_tracks(album_id)
+        
+        # Ajouter l'album à la file de téléchargement
+        db.add_album(
+            album_id,
+            request.form.get('artist_id'),
+            album_info['title'],
+            request.form.get('release_date'),
+            album_info.get('cover_url')
+        )
+
+        # Ajouter toutes les pistes
+        for track in album_info['tracks']:
+            if track.get('id'):  # Vérifier que la piste a un ID valide
+                db.add_track(
+                    track['id'],
+                    album_id,
+                    track['title'],
+                    track['position'],
+                    track['length']
+                )
+            else:
+                # Si une piste n'a pas d'ID, on log l'erreur mais on continue
+                print(f"Warning: Track {track['title']} has no valid ID")
+
+        return jsonify({'status': 'success', 'message': 'Album ajouté à la file de téléchargement'})
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":

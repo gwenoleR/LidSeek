@@ -31,20 +31,20 @@
     <button type="submit">Rechercher</button>
   </form>
   {% if results %}
-    <h2>Résultats pour {{ results.artist }}</h2>
-    <ul>
-    {% for album in results.albums %}
-      <li>
-        <a href="/album/{{ album.id }}" class="album-link">
-          <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
-          <span class="type-info">
-            ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
-          </span>
-        </a>
-      </li>
-    {% endfor %}
-    </ul>
-  {% elif error %}
+        <h2>Résultats pour {{ results.artist }}</h2>
+        <ul>
+        {% for album in results.albums %}
+            <li>
+                <a href="/album/{{ album.id }}?artist_id={{ results.mbid }}" class="album-link">
+                    <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
+                    <span class="type-info">
+                        ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
+                    </span>
+                </a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% elif error %}
     <p style="color:red;">{{ error }}</p>
   {% endif %}
 </body>
