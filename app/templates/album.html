@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>{{ album.title }} - Détails de l'album</title>
+    <title>{% if album.error %}Erreur - Album{% else %}{{ album.title }}{% endif %} - MusicBrainz</title>
     <style>
         .container {
             max-width: 800px;
@@ -17,17 +17,21 @@
         }
         .album-cover {
             width: 300px;
-            height: auto;
-            background-color: #eee;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .album-cover {
-            width: 300px;
             height: 300px;
             background-color: #eee;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #999;
+            font-size: 48px;
+        }
+        .album-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
         }
         .album-info {
             flex: 1;
@@ -123,91 +127,117 @@
         .track-main {
             flex: 1;
         }
+        .refresh-button {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .refresh-button:hover {
+            background-color: #e9ecef;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="javascript:history.back()" class="back-link">← Retour aux albums</a>
         
-        {% if album.error %}
-            <div class="album-header">
-                <div class="album-info">
-                    <h1>{{ album.title }}</h1>
-                    <p style="color:red;">{{ album.error }}</p>
-                </div>
-            </div>
-        {% else %}
-            <div class="album-header">
+        <div class="album-header">
+            <div class="album-cover">
                 {% if album.cover_url %}
-                    <img src="{{ album.cover_url }}" alt="Couverture de {{ album.title }}" class="album-cover">
+                    <img src="{{ album.cover_url }}" alt="Couverture de {{ album.title }}" />
+                {% else %}
+                    📀
                 {% endif %}
-                <div class="album-info">
-                    <h1>{{ album.title }}</h1>
-                    {% if album.tracks %}
-                        <p>{{ album.tracks|length }} pistes</p>
-                        
-                        {% if album.download_status %}
-                            <div class="download-status status-{{ album.download_status }}">
-                                {% if album.download_status == 'pending' %}
-                                    En attente de téléchargement
-                                {% elif album.download_status == 'downloading' %}
-                                    Téléchargement en cours ({{ album.completed_tracks }}/{{ album.total_tracks }})
-                                {% elif album.download_status == 'completed' %}
-                                    Téléchargement terminé
-                                {% else %}
-                                    Erreur lors du téléchargement
-                                {% endif %}
-                            </div>
-                        {% else %}
-                            <button 
-                                class="download-button" 
-                                onclick="queueDownload('{{ album.id }}')"
-                                {% if album.download_status == 'completed' %}disabled{% endif %}
-                            >
-                                Télécharger l'album
-                            </button>
-                        {% endif %}
-                    {% endif %}
-                </div>
             </div>
+            <div class="album-info">
+                <h1>{% if album.error %}Album inconnu{% else %}{{ album.title }}{% endif %}</h1>
+                
+                <a href="/refresh/album/{{ album.id }}?artist_id={{ album.artist_id }}" 
+                   class="refresh-button">
+                    🔄 Rafraîchir les pistes
+                </a>
 
-            {% if album.tracks %}
-                <ul class="track-list">
-                {% for track in album.tracks %}
-                    <li class="track-item">
-                        <div class="track-info">
-                            <div class="track-main">
-                                <span class="track-number">{{ track.position }}.</span>
-                                <span class="track-title">{{ track.title }}</span>
-                                {% if track.length %}
-                                    <span class="track-duration">({{ (track.length / 1000) | round | int // 60 }}:{{ '%02d' | format((track.length / 1000) | round | int % 60) }})</span>
-                                {% endif %}
-                                {% if track.artists|length > 0 %}
-                                    <div class="track-artists">
-                                        {{ track.artists|join(', ') }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            {% if track.download_status %}
-                                <div class="track-status status-{{ track.download_status }}">
-                                    {% if track.download_status == 'pending' %}
-                                        En attente
-                                    {% elif track.download_status == 'downloading' %}
-                                        Téléchargement
-                                    {% elif track.download_status == 'completed' %}
-                                        Terminé
-                                    {% else %}
-                                        Erreur
-                                    {% endif %}
+                {% if album.error %}
+                    <div class="error-message">
+                        {{ album.error }}
+                    </div>
+                {% endif %}
+
+                {% if not album.error and album.tracks %}
+                    <p>{{ album.tracks|length }} pistes</p>
+                    
+                    {% if album.download_status %}
+                        <div class="download-status status-{{ album.download_status }}">
+                            {% if album.download_status == 'pending' %}
+                                En attente de téléchargement
+                            {% elif album.download_status == 'downloading' %}
+                                Téléchargement en cours ({{ album.completed_tracks }}/{{ album.total_tracks }})
+                            {% elif album.download_status == 'completed' %}
+                                Téléchargement terminé
+                            {% else %}
+                                Erreur lors du téléchargement
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <button 
+                            class="download-button" 
+                            onclick="queueDownload('{{ album.id }}')"
+                            {% if album.download_status == 'completed' %}disabled{% endif %}
+                        >
+                            Télécharger l'album
+                        </button>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if not album.error and album.tracks %}
+            <ul class="track-list">
+            {% for track in album.tracks %}
+                <li class="track-item">
+                    <div class="track-info">
+                        <div class="track-main">
+                            <span class="track-number">{{ track.position }}.</span>
+                            <span class="track-title">{{ track.title }}</span>
+                            {% if track.length %}
+                                <span class="track-duration">({{ (track.length / 1000) | round | int // 60 }}:{{ '%02d' | format((track.length / 1000) | round | int % 60) }})</span>
+                            {% endif %}
+                            {% if track.artists|length > 0 %}
+                                <div class="track-artists">
+                                    {{ track.artists|join(', ') }}
                                 </div>
                             {% endif %}
                         </div>
-                    </li>
-                {% endfor %}
-                </ul>
-            {% else %}
-                <p>Aucune piste trouvée pour cet album.</p>
-            {% endif %}
+                        {% if track.download_status %}
+                            <div class="track-status status-{{ track.download_status }}">
+                                {% if track.download_status == 'pending' %}
+                                    En attente
+                                {% elif track.download_status == 'downloading' %}
+                                    Téléchargement
+                                {% elif track.download_status == 'completed' %}
+                                    Terminé
+                                {% else %}
+                                    Erreur
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+            </ul>
         {% endif %}
     </div>
 

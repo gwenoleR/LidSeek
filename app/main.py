@@ -2,7 +2,7 @@ import os
 import json
 import redis
 import requests
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from dotenv import load_dotenv
 from database import Database, DownloadStatus
 
@@ -16,9 +16,9 @@ class MusicBrainzFetcher:
         self.redis_client = redis_client
         self.cache_expiration = cache_expiration
 
-    def get_artist_mbid(self, artist_name):
+    def get_artist_mbid(self, artist_name, force_refresh=False):
         cache_key = f"artist_id:{artist_name}"
-        cached_id = self.redis_client.get(cache_key)
+        cached_id = None if force_refresh else self.redis_client.get(cache_key)
         if cached_id:
             return cached_id
 
@@ -34,9 +34,9 @@ class MusicBrainzFetcher:
             return artist_id
         raise ValueError("Artiste non trouvé.")
 
-    def get_albums_for_artist(self, mbid, limit=100):
+    def get_albums_for_artist(self, mbid, limit=100, force_refresh=False):
         cache_key = f"albums:{mbid}"
-        cached_albums = self.redis_client.get(cache_key)
+        cached_albums = None if force_refresh else self.redis_client.get(cache_key)
         if cached_albums:
             return json.loads(cached_albums)
 
@@ -83,9 +83,9 @@ class MusicBrainzFetcher:
         self.redis_client.setex(cache_key, self.cache_expiration, json.dumps(sorted_albums))
         return sorted_albums
 
-    def get_album_tracks(self, album_id):
+    def get_album_tracks(self, album_id, force_refresh=False):
         cache_key = f"tracks:{album_id}"
-        cached_tracks = self.redis_client.get(cache_key)
+        cached_tracks = None if force_refresh else self.redis_client.get(cache_key)
         if cached_tracks:
             return json.loads(cached_tracks)
 
@@ -281,6 +281,34 @@ def queue_album_download(album_id):
                 print(f"Warning: Track {track['title']} has no valid ID")
 
         return jsonify({'status': 'success', 'message': 'Album ajouté à la file de téléchargement'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/refresh/albums', methods=['GET'])
+def refresh_albums():
+    artist_name = request.args.get('artist')
+    if not artist_name:
+        return jsonify({'error': 'Paramètre "artist" requis'}), 400
+
+    try:
+        mbid = mb_fetcher.get_artist_mbid(artist_name, force_refresh=True)
+        album_list = mb_fetcher.get_albums_for_artist(mbid, force_refresh=True)
+
+        # Rediriger vers la page des albums
+        return redirect(url_for('albums', artist=artist_name))
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/refresh/album/<album_id>', methods=['GET'])
+def refresh_album(album_id):
+    try:
+        artist_id = request.args.get('artist_id')
+        mb_fetcher.get_album_tracks(album_id, force_refresh=True)
+        
+        # Rediriger vers la page de l'album
+        return redirect(url_for('album_details', album_id=album_id, artist_id=artist_id))
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

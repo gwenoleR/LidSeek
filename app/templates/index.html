@@ -32,6 +32,12 @@
   </form>
   {% if results %}
         <h2>Résultats pour {{ results.artist }}</h2>
+        <div style="margin-bottom: 20px;">
+            <a href="/refresh/albums?artist={{ results.artist }}" 
+               style="display: inline-block; padding: 5px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #333;">
+                🔄 Rafraîchir les albums
+            </a>
+        </div>
         <ul>
         {% for album in results.albums %}
             <li>
