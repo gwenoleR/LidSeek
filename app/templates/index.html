@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Recherche d'albums MusicBrainz</title>
+  <style>
+    .type-info {
+      color: #666;
+      font-size: 0.9em;
+    }
+    .album-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      padding: 5px;
+    }
+    .album-link:hover {
+      background-color: #f5f5f5;
+    }
+    li {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Recherche d'albums d'un artiste</h1>
+  <form action="/albums" method="get">
+    <label>Nom de l'artiste :
+      <input type="text" name="artist" required>
+    </label>
+    <button type="submit">Rechercher</button>
+  </form>
+  {% if results %}
+    <h2>Résultats pour {{ results.artist }}</h2>
+    <ul>
+    {% for album in results.albums %}
+      <li>
+        <a href="/album/{{ album.id }}" class="album-link">
+          <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
+          <span class="type-info">
+            ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
+          </span>
+        </a>
+      </li>
+    {% endfor %}
+    </ul>
+  {% elif error %}
+    <p style="color:red;">{{ error }}</p>
+  {% endif %}
+</body>
+</html>
