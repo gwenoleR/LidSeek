@@ -10,8 +10,9 @@ class DownloadStatus(Enum):
     ERROR = "error"
 
 class Database:
-    def __init__(self, db_path="downloads.db"):
+    def __init__(self, db_path="data/downloads.db"):
         self.db_path = db_path
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Création du dossier si nécessaire
         self.init_db()
 
     def init_db(self):
