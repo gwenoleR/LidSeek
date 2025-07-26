@@ -87,13 +87,22 @@ def init_routes(musicbrainz_service, download_manager):
     @album_routes.route('/refresh/albums', methods=['GET'])
     def refresh_albums():
         artist_name = request.args.get('artist')
-        if not artist_name:
-            return jsonify({'error': 'Paramètre "artist" requis'}), 400
+        artist_id = request.args.get('artist_id')  # Ajout du paramètre artist_id
+        
+        if not artist_name and not artist_id:
+            return jsonify({'error': 'Paramètre "artist" ou "artist_id" requis'}), 400
 
         try:
-            musicbrainz_service.get_artist_mbid(artist_name, force_refresh=True)
-            musicbrainz_service.get_albums_for_artist(artist_name, force_refresh=True)
+            # Si on a l'ID de l'artiste, on l'utilise directement
+            if artist_id:
+                mbid = artist_id
+            else:
+                # Sinon on cherche par le nom (cas de fallback)
+                mbid = musicbrainz_service.get_artist_mbid(artist_name, force_refresh=True)
+            
+            album_list = musicbrainz_service.get_albums_for_artist(mbid, force_refresh=True)
             return redirect(url_for('album_routes.albums', artist=artist_name))
+            
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 

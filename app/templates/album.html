@@ -164,11 +164,33 @@
         .cancel-button:hover {
             background-color: #c82333;
         }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .nav-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="javascript:history.back()" class="back-link">← Retour aux albums</a>
+        <div class="header">
+            <div>
+                <a href="javascript:history.back()" class="back-link">← Retour aux albums</a>
+            </div>
+            <nav>
+                <a href="/" class="nav-link">Rechercher</a>
+                <a href="/library" class="nav-link">Ma Bibliothèque</a>
+            </nav>
+        </div>
         
         <div class="album-header">
             <div class="album-cover">

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ma Bibliothèque Musicale</title>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .nav-link {
+            display: inline-block;
+            padding: 5px 10px;
+            text-decoration: none;
+            color: #333;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+        .nav-link:hover {
+            background-color: #f8f9fa;
+        }
+        .albums-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .album-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .album-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .album-cover {
+            width: 100%;
+            height: 250px;
+            background-color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #999;
+            font-size: 48px;
+        }
+        .album-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .album-info {
+            padding: 15px;
+        }
+        .album-title {
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            font-size: 1.1em;
+        }
+        .album-artist {
+            color: #666;
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+        }
+        .download-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-downloading {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .status-completed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .added-date {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        .release-date {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Ma Bibliothèque</h1>
+            <nav>
+                <a href="/" class="nav-link">Rechercher</a>
+            </nav>
+        </div>
+
+        {% if error %}
+            <p style="color:red;">{{ error }}</p>
+        {% else %}
+            <div class="albums-grid">
+            {% for album in albums %}
+                <a href="/album/{{ album.id }}?artist_id={{ album.artist_id }}" class="album-card">
+                    <div class="album-cover">
+                        {% if album.cover_url %}
+                            <img src="{{ album.cover_url }}" alt="Couverture de {{ album.title }}" />
+                        {% else %}
+                            📀
+                        {% endif %}
+                    </div>
+                    <div class="album-info">
+                        <h3 class="album-title">{{ album.title }}</h3>
+                        <p class="album-artist">{{ album.artist_name }}</p>
+                        
+                        <div class="download-status status-{{ album.status }}">
+                            {% if album.status == 'pending' %}
+                                En attente
+                            {% elif album.status == 'downloading' %}
+                                Téléchargement ({{ album.completed_tracks }}/{{ album.total_tracks }})
+                            {% elif album.status == 'completed' %}
+                                Terminé
+                            {% else %}
+                                Erreur
+                            {% endif %}
+                        </div>
+                        
+                        {% if album.release_date %}
+                            <div class="release-date">
+                                Sorti le {{ album.release_date }}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="added-date">
+                            Ajouté le {{ album.added_date.strftime('%d/%m/%Y') }}
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

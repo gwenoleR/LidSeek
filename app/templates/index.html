@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <title>Recherche d'albums MusicBrainz</title>
   <style>
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
     .type-info {
       color: #666;
       font-size: 0.9em;
@@ -20,38 +25,64 @@
     li {
       margin: 5px 0;
     }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .nav-link {
+      display: inline-block;
+      padding: 5px 10px;
+      text-decoration: none;
+      color: #333;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      margin-left: 10px;
+    }
+    .nav-link:hover {
+      background-color: #f8f9fa;
+    }
   </style>
 </head>
 <body>
-  <h1>Recherche d'albums d'un artiste</h1>
-  <form action="/albums" method="get">
-    <label>Nom de l'artiste :
-      <input type="text" name="artist" required>
-    </label>
-    <button type="submit">Rechercher</button>
-  </form>
-  {% if results %}
-        <h2>Résultats pour {{ results.artist }}</h2>
-        <div style="margin-bottom: 20px;">
-            <a href="/refresh/albums?artist={{ results.artist }}" 
-               style="display: inline-block; padding: 5px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #333;">
-                🔄 Rafraîchir les albums
-            </a>
-        </div>
-        <ul>
-        {% for album in results.albums %}
-            <li>
-                <a href="/album/{{ album.id }}?artist_id={{ results.mbid }}" class="album-link">
-                    <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
-                    <span class="type-info">
-                        ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
-                    </span>
-                </a>
-            </li>
-        {% endfor %}
-        </ul>
-    {% elif error %}
-    <p style="color:red;">{{ error }}</p>
-  {% endif %}
+  <div class="container">
+    <div class="header">
+      <h1>Recherche d'albums</h1>
+      <nav>
+        <a href="/library" class="nav-link">Ma Bibliothèque</a>
+      </nav>
+    </div>
+
+    <form action="/albums" method="get">
+      <label>Nom de l'artiste :
+        <input type="text" name="artist" required>
+      </label>
+      <button type="submit">Rechercher</button>
+    </form>
+    {% if results %}
+          <h2>Résultats pour {{ results.artist }}</h2>
+          <div style="margin-bottom: 20px;">
+              <a href="/refresh/albums?artist={{ results.artist }}&artist_id={{ results.mbid }}" 
+                 style="display: inline-block; padding: 5px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #333;">
+                  🔄 Rafraîchir les albums
+              </a>
+          </div>
+          <ul>
+          {% for album in results.albums %}
+              <li>
+                  <a href="/album/{{ album.id }}?artist_id={{ results.mbid }}" class="album-link">
+                      <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
+                      <span class="type-info">
+                          ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
+                      </span>
+                  </a>
+              </li>
+          {% endfor %}
+          </ul>
+      {% elif error %}
+      <p style="color:red;">{{ error }}</p>
+    {% endif %}
+  </div>
 </body>
 </html>

@@ -4,8 +4,10 @@ from config.settings import Config
 from database import Database
 from services.musicbrainz import MusicBrainzService
 from services.download_manager import DownloadManager
+from services.library import LibraryService
 from routes.album_routes import album_routes, init_routes as init_album_routes
 from routes.download_routes import download_routes, init_routes as init_download_routes
+from routes.library_routes import library_routes, init_routes as init_library_routes
 
 def create_app():
     app = Flask(__name__)
@@ -24,10 +26,12 @@ def create_app():
         Config.CACHE_EXPIRATION
     )
     download_manager = DownloadManager(db)
+    library_service = LibraryService(db)
 
     # Enregistrement des routes
     app.register_blueprint(init_album_routes(musicbrainz_service, download_manager))
     app.register_blueprint(init_download_routes(musicbrainz_service, download_manager))
+    app.register_blueprint(init_library_routes(library_service))
 
     @app.route('/')
     def index():

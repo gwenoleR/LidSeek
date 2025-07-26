@@ -85,7 +85,8 @@ class MusicBrainzService:
         # Obtenir d'abord les informations du release-group
         url = f"{self.BASE_URL}/release-group/{album_id}"
         params = {
-            'fmt': 'json'
+            'fmt': 'json',
+            'inc': 'artist-credits'  # Include artist credits
         }
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()
@@ -113,6 +114,8 @@ class MusicBrainzService:
             'id': album_id,
             'title': release_group_data.get('title', ''),
             'cover_url': self._get_cover_url(release['id']),
+            'artist_name': release_group_data.get('artist-credit', [{}])[0].get('name', 'Artiste Inconnu'),
+            'release_date': release_group_data.get('first-release-date'),  # Ajout de la date de sortie
             'tracks': []
         }
 
