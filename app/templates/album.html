@@ -178,6 +178,24 @@
         .nav-link:hover {
             text-decoration: underline;
         }
+        .track-progress {
+            width: 100%;
+            height: 4px;
+            background-color: #eee;
+            border-radius: 2px;
+            margin-top: 5px;
+            display: none;
+        }
+        .track-progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .track-item.downloading .track-progress {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -265,7 +283,7 @@
         {% if not album.error and album.tracks %}
             <ul class="track-list">
             {% for track in album.tracks %}
-                <li class="track-item">
+                <li class="track-item" data-track-id="{{ track.id }}">
                     <div class="track-info">
                         <div class="track-main">
                             <span class="track-number">{{ track.position }}.</span>
@@ -292,6 +310,9 @@
                                 {% endif %}
                             </div>
                         {% endif %}
+                    </div>
+                    <div class="track-progress">
+                        <div class="track-progress-bar" style="width: {{ track.progress }}%;"></div>
                     </div>
                 </li>
             {% endfor %}
@@ -371,6 +392,102 @@
             alert('Erreur lors de la requête : ' + error);
         });
     }
+
+    function updateDownloadStatus() {
+        const albumId = '{{ album.id }}';
+        fetch(`/album/${albumId}/status?artist_id={{ album.artist_id }}`)
+            .then(response => response.json())
+            .then(data => {
+                // Mise à jour du statut global de l'album
+                const statusDiv = document.querySelector('.download-status');
+                if (statusDiv) {
+                    statusDiv.className = 'download-status status-' + data.status;
+                    let statusText = '';
+                    if (data.status === 'pending') {
+                        statusText = 'En attente de téléchargement';
+                    } else if (data.status === 'downloading') {
+                        statusText = `Téléchargement en cours (${data.completed_tracks}/${data.total_tracks})`;
+                    } else if (data.status === 'completed') {
+                        statusText = 'Téléchargement terminé';
+                    } else {
+                        statusText = 'Erreur lors du téléchargement';
+                    }
+                    statusDiv.innerHTML = statusText;
+
+                    // Ajouter le bouton d'annulation si nécessaire
+                    if (data.status === 'pending' || data.status === 'downloading') {
+                        statusDiv.innerHTML += ` <button class="cancel-button" onclick="cancelDownload('${albumId}')">Annuler</button>`;
+                    }
+                }
+
+                // Mise à jour du statut de chaque piste
+                if (data.tracks) {
+                    Object.entries(data.tracks).forEach(([trackId, trackInfo]) => {
+                        const trackItem = document.querySelector(`[data-track-id="${trackId}"]`);
+                        if (trackItem) {
+                            const statusBadge = trackItem.querySelector('.track-status');
+                            if (statusBadge) {
+                                statusBadge.className = 'track-status status-' + trackInfo.status;
+                                let trackStatusText = '';
+                                if (trackInfo.status === 'pending') {
+                                    trackStatusText = 'En attente';
+                                } else if (trackInfo.status === 'downloading') {
+                                    trackStatusText = 'Téléchargement';
+                                    trackItem.classList.add('downloading');
+                                } else if (trackInfo.status === 'completed') {
+                                    trackStatusText = 'Terminé';
+                                    trackItem.classList.remove('downloading');
+                                } else {
+                                    trackStatusText = 'Erreur';
+                                    trackItem.classList.remove('downloading');
+                                }
+                                statusBadge.textContent = trackStatusText;
+
+                                // Mise à jour de la barre de progression
+                                const progressBar = trackItem.querySelector('.track-progress-bar');
+                                if (progressBar) {
+                                    if (trackInfo.status === 'completed') {
+                                        progressBar.style.width = '100%';
+                                    } else if (trackInfo.status === 'downloading') {
+                                        progressBar.style.width = '50%';
+                                    } else {
+                                        progressBar.style.width = '0%';
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Erreur lors de la mise à jour du statut:', error));
+    }
+
+    // Mettre à jour le statut toutes les 2 secondes si un téléchargement est en cours
+    let updateInterval;
+    function startStatusUpdates() {
+        updateInterval = setInterval(updateDownloadStatus, 2000);
+    }
+
+    function stopStatusUpdates() {
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+    }
+
+    // Démarrer les mises à jour si un téléchargement est en cours
+    if (document.querySelector('.status-downloading')) {
+        startStatusUpdates();
+    }
+
+    // Gérer le démarrage/arrêt des mises à jour lors du téléchargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const downloadButton = document.querySelector('.download-button');
+        if (downloadButton) {
+            downloadButton.addEventListener('click', function() {
+                startStatusUpdates();
+            });
+        }
+    });
     </script>
 </body>
 </html>
