@@ -7,6 +7,9 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Créer le dossier de téléchargement
+RUN mkdir -p /downloads
+
 EXPOSE 8081
 
 ENV FLASK_ENV=development

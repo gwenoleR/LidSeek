@@ -1,5 +1,6 @@
 flask
-requests
-python-dotenv
 redis
-SQLAlchemy
+musicbrainzngs
+python-dotenv
+slskd-api
+music-tag

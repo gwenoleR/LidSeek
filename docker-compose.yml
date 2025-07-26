@@ -1,23 +1,35 @@
 version: "3.8"
 
 services:
-  musicbrainz:
+  app:
     build: .
     ports:
       - "8081:8081"
-    env_file:
-      - app/.env
+    environment:
+      - REDIS_HOST=redis
+      - SLSKD_HOST=http://slskd:5030
+      - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
     volumes:
       - ./app:/app
-      - music_db:/app/data
+      - ./music_dowloads:/downloads
     depends_on:
       - redis
+      - slskd
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
 
-volumes:
-  music_db:
-    name: music_db
+  slskd:
+    image: slskd/slskd:latest
+    ports:
+      - "5030:5030"
+    volumes:
+      - ./music_dowloads:/downloads
+      - ./slskd_config:/app/config
+    environment:
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_SHARED_DIR=/downloads
+      - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
+      - SLSKD_REMOTE_ACCESS=true

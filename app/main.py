@@ -4,6 +4,7 @@ from config.settings import Config
 from database import Database
 from services.musicbrainz import MusicBrainzService
 from services.download_manager import DownloadManager
+from services.downloaders import SlskdDownloader
 from services.library import LibraryService
 from routes.album_routes import album_routes, init_routes as init_album_routes
 from routes.download_routes import download_routes, init_routes as init_download_routes
@@ -25,7 +26,22 @@ def create_app():
         redis_client,
         Config.CACHE_EXPIRATION
     )
+    
+    # Initialisation du DownloadManager avec Slskd
     download_manager = DownloadManager(db)
+    slskd_downloader = SlskdDownloader()
+    slskd_downloader.configure(
+        host_url=Config.SLSKD_HOST,
+        api_key=Config.SLSKD_API_KEY,
+        url_base=Config.SLSKD_URL_BASE
+    )
+    slskd_downloader.allowed_filetypes = Config.SLSKD_ALLOWED_FILETYPES
+    slskd_downloader.ignored_users = Config.SLSKD_IGNORED_USERS
+    slskd_downloader.minimum_match_ratio = Config.SLSKD_MIN_MATCH_RATIO
+    
+    download_manager.configure_downloader(slskd_downloader)
+    download_manager.download_dir = Config.SLSKD_DOWNLOAD_DIR
+    
     library_service = LibraryService(db)
 
     # Enregistrement des routes
