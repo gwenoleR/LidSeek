@@ -1,7 +1,6 @@
 /slskd_config
 /music_dowloads
 /venv
-/logs
-/data
-/slskd_config/
-__pycache__/
+/app/logs
+/app/data
+/slskd_config

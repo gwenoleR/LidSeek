@@ -299,21 +299,19 @@ class DownloadManager:
 
     def _clean_string(self, text: str) -> str:
         """Nettoie une chaîne pour la comparaison."""
-        # Enlever l'extension si présente
-        text = text.rsplit('.', 1)[0]
+        # Enlever l'extension si présente mais garder les autres parties après les points
+        if text.lower().endswith(('.mp3', '.flac', '.m4a', '.wav')):
+            text = text.rsplit('.', 1)[0]
         
-        # Conserver les chiffres et les caractères alphanumériques
-        # Remplacer les caractères spéciaux par des espaces
+        # Nettoyer en gardant les chiffres et les points
         cleaned = ''
-        for c in text:
-            if c.isalnum() or c.isspace():
+        for c in text.lower():
+            if c.isalnum() or c == '.':  # On garde les points
                 cleaned += c
-            else:
+            elif c.isspace() and cleaned and not cleaned[-1].isspace():
                 cleaned += ' '
         
-        # Normaliser les espaces multiples
-        cleaned = ' '.join(cleaned.split())
-        
+        # Normaliser les espaces
         return cleaned.strip()
 
     def _match_filename_to_track(self, filename: str, track_title: str) -> bool:
@@ -324,63 +322,30 @@ class DownloadManager:
             
         self.logger.debug(f"Comparaison du fichier '{filename}' avec le titre '{track_title}'")
         
-        def extract_base_and_part(text):
-            """Extrait le nom de base et le numéro de partie d'un titre."""
-            # Nettoyer le texte
-            text = text.lower()
-            text = text.rsplit('.', 1)[0]  # Enlever l'extension si présente
-            
-            # Patterns pour détecter les parties
-            patterns = [
-                r'^(.*?)\s*(?:pt\.?|part\.?)\s*(\d+)(?:\s*\(.*?\))?\s*$',  # Matches: "Name Pt 1", "Name Part 1 (Live)"
-                r'^(.*?)\s*\(.*?(?:pt\.?|part\.?)\s*(\d+).*?\)\s*$'  # Matches: "Name (Pt 1)", "Name (Part 1 Live)"
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, text)
-                if match:
-                    base = match.group(1).strip()
-                    part = int(match.group(2))
-                    return base, part
-                    
-            return text.strip(), None
-            
-        # Extraire les noms de base et numéros de partie
-        file_base, file_part = extract_base_and_part(filename)
-        title_base, title_part = extract_base_and_part(track_title)
+        # Nettoyer les noms pour la comparaison
+        clean_filename = self._clean_string(filename)
+        clean_title = self._clean_string(track_title)
         
-        self.logger.debug(f"Fichier décomposé: base='{file_base}', partie={file_part}")
-        self.logger.debug(f"Titre décomposé: base='{title_base}', partie={title_part}")
-        
-        # Si les deux ont des numéros de partie différents, pas de correspondance
-        if file_part is not None and title_part is not None and file_part != title_part:
-            self.logger.debug(f"Les numéros de partie ne correspondent pas - Fichier: {file_part}, Titre: {title_part}")
+        if not clean_filename or not clean_title:
+            self.logger.debug("Un des noms est vide après nettoyage")
             return False
+            
+        self.logger.debug(f"Noms nettoyés - Fichier: '{clean_filename}', Titre: '{clean_title}'")
         
-        # Nettoyer les noms de base pour la comparaison
-        clean_file_base = re.sub(r'[^a-z0-9\s]', ' ', file_base)
-        clean_title_base = re.sub(r'[^a-z0-9\s]', ' ', title_base)
+        # Calculer le ratio de similarité
+        ratio = difflib.SequenceMatcher(None, clean_filename, clean_title).ratio()
+        self.logger.debug(f"Ratio de similarité: {ratio}")
         
-        # Nettoyer les espaces multiples
-        clean_file_base = ' '.join(clean_file_base.split())
-        clean_title_base = ' '.join(clean_title_base.split())
-        
-        # Calculer le ratio de similarité sur les noms de base
-        ratio = difflib.SequenceMatcher(None, clean_file_base, clean_title_base).ratio()
-        self.logger.debug(f"Ratio de similarité des noms de base: {ratio}")
-        
-        # La correspondance est vraie si :
-        # 1. Les noms de base font au moins 4 caractères et correspondent
-        # 2. ET les numéros de partie correspondent (ou sont absents)
-        title_match = len(clean_title_base) >= 4 and clean_title_base in clean_file_base
-        ratio_match = ratio > self.downloader.minimum_match_ratio
-        part_match = file_part == title_part if (file_part is not None and title_part is not None) else True
+        # La correspondance est vraie si:
+        # 1. Le titre fait au moins 4 caractères ET est contenu dans le nom du fichier
+        # 2. OU le ratio de similarité est supérieur au minimum requis
+        title_match = len(clean_title) >= 4 and clean_title in clean_filename
+        ratio_match = ratio > 0.85 #self.downloader.minimum_match_ratio
         
         self.logger.debug(f"Correspondance par contenu: {title_match}")
         self.logger.debug(f"Correspondance par ratio: {ratio_match}")
-        self.logger.debug(f"Correspondance des parties: {part_match}")
         
-        is_match = (title_match or ratio_match) and part_match
+        is_match = title_match or ratio_match
         self.logger.debug(f"Résultat final de la correspondance: {is_match}")
         
         return is_match
