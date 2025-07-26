@@ -3,6 +3,7 @@ from utils.logger import setup_logger
 from typing import Dict, List
 import time
 from .downloaders import Downloader, SlskdDownloader
+import difflib
 
 class DownloadManager:
     def __init__(self, database: Database):
@@ -21,6 +22,31 @@ class DownloadManager:
         downloader.configure(host_url=host_url, api_key=api_key, url_base=url_base)
         self.configure_downloader(downloader)
 
+    def _flatten_files(self, slskd_tracks: list) -> list:
+        """Récupère récursivement tous les fichiers (ayant 'filename') dans une liste à plat."""
+        files = []
+        for item in slskd_tracks:
+            if 'filename' in item:
+                files.append(item)
+            elif 'files' in item and isinstance(item['files'], list):
+                files.extend(self._flatten_files(item['files']))
+        return files
+
+    def _flatten_files_with_path(self, slskd_tracks, parent_path=""):
+        files = []
+        for item in slskd_tracks:
+            if 'filename' in item:
+                # Ajoute le chemin du dossier parent si besoin
+                full_path = f"{parent_path}\\{item['filename']}" if parent_path else item['filename']
+                file_copy = dict(item)  # Copie pour ne pas modifier l'original
+                file_copy['filename'] = full_path
+                files.append(file_copy)
+            elif 'files' in item and isinstance(item['files'], list):
+                folder_name = item.get('name', '')
+                new_parent = f"{parent_path}\\{folder_name}" if parent_path else folder_name
+                files.extend(self._flatten_files_with_path(item['files'], new_parent))
+        return files
+
     def _album_match(self, tracks: List[dict], slskd_tracks: List[dict], username: str) -> bool:
         """Vérifie si les pistes correspondent."""
         counted = []
@@ -28,11 +54,15 @@ class DownloadManager:
 
         self.logger.debug(f"Vérification de la correspondance pour {len(tracks)} pistes de l'utilisateur {username}")
 
+        # Récupérer tous les fichiers à plat
+        flat_files = self._flatten_files(slskd_tracks)
+
         for track in tracks:
             best_match = 0.0
             track_filename = f"{track['title']}.{self.downloader.allowed_filetypes[0]}"
 
-            for slskd_track in slskd_tracks:
+            for slskd_track in flat_files:
+                self.logger.debug(f"Fichier Slsk: {slskd_track}")
                 slskd_filename = slskd_track['filename']
                 ratio = difflib.SequenceMatcher(None, track_filename, slskd_filename).ratio()
                 if ratio > best_match:
@@ -68,15 +98,22 @@ class DownloadManager:
 
                 self.logger.info(f"Analyse des résultats de {username}")
                 for file in result['files']:
+                    if 'filename' not in file:
+                        continue
                     if not any(file['filename'].endswith(ext) for ext in self.downloader.allowed_filetypes):
                         continue
 
                     file_dir = file['filename'].rsplit("\\", 1)[0]
                     try:
                         directory = self.downloader.get_directory_content(username, file_dir)
-                        if self._album_match(album_info['tracks'], directory['files'], username):
+                        if isinstance(directory, dict) and 'files' in directory:
+                            files = directory['files']
+                        else:
+                            files = directory
+                        if self._album_match(album_info['tracks'], files, username):
                             self.logger.info(f"Correspondance trouvée! Téléchargement depuis {username}")
-                            return self.downloader.start_download(username, directory['files'])
+                            files = self._flatten_files_with_path(files)
+                            return self.downloader.start_download(username, files)
                     except Exception as e:
                         self.logger.error(f"Erreur lors de l'accès au dossier de {username}: {str(e)}")
                         continue

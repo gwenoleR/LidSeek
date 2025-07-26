@@ -141,6 +141,62 @@ class Database:
             ''', (DownloadStatus.PENDING.value,))
             return cursor.fetchall()
 
+    def get_pending_albums(self):
+        """Récupère tous les albums en attente de téléchargement."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    a.id, a.title, a.artist_id,
+                    ar.name as artist_name,
+                    t.id as track_id, t.title as track_title,
+                    t.position as track_position
+                FROM albums a
+                JOIN artists ar ON a.artist_id = ar.id
+                JOIN tracks t ON a.id = t.album_id
+                WHERE a.status = ?
+                ORDER BY a.added_date, t.position
+            ''', (DownloadStatus.PENDING.value,))
+            
+            results = cursor.fetchall()
+            albums = {}
+            
+            for row in results:
+                album_id = row['id']
+                if album_id not in albums:
+                    albums[album_id] = {
+                        'id': album_id,
+                        'title': row['title'],
+                        'artist_name': row['artist_name'],
+                        'artist_id': row['artist_id'],
+                        'tracks': []
+                    }
+                
+                albums[album_id]['tracks'].append({
+                    'id': row['track_id'],
+                    'title': row['track_title'],
+                    'position': row['track_position']
+                })
+            
+            return list(albums.values())
+
+    def get_downloading_albums(self):
+        """Récupère tous les albums en cours de téléchargement."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT 
+                    a.id, a.title, a.artist_id,
+                    ar.name as artist_name
+                FROM albums a
+                JOIN artists ar ON a.artist_id = ar.id
+                WHERE a.status = ?
+            ''', (DownloadStatus.DOWNLOADING.value,))
+            
+            return [dict(row) for row in cursor.fetchall()]
+
     def get_album_status(self, album_id):
         """Récupère le statut d'un album et ses pistes."""
         with sqlite3.connect(self.db_path) as conn:

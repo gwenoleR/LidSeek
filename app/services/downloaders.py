@@ -86,6 +86,7 @@ class SlskdDownloader(Downloader):
         return self.client.users.directory(username=username, directory=directory)
         
     def start_download(self, username: str, files: List[Dict]) -> bool:
+        self.logger.info(f"Démarrage du téléchargement pour {username} avec les fichiers: {files}")
         try:
             self.client.transfers.enqueue(username=username, files=files)
             return True

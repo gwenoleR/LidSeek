@@ -237,6 +237,14 @@
                                 </button>
                             {% elif album.download_status == 'completed' %}
                                 Téléchargement terminé
+                            {% elif album.download_status == 'error' %}
+                                Erreur lors du téléchargement
+                                <button 
+                                    class="download-button" 
+                                    onclick="retryDownload('{{ album.id }}')"
+                                >
+                                    Réessayer le téléchargement
+                                </button>
                             {% else %}
                                 Erreur lors du téléchargement
                             {% endif %}
@@ -333,6 +341,29 @@
                 alert('Erreur : ' + data.error);
             } else {
                 // Recharger la page pour afficher le nouveau statut
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            alert('Erreur lors de la requête : ' + error);
+        });
+    }
+
+    function retryDownload(albumId) {
+        fetch(`/retry/album/${albumId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'artist_id': new URLSearchParams(window.location.search).get('artist_id') || ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Erreur : ' + data.error);
+            } else {
                 window.location.reload();
             }
         })

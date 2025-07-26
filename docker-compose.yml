@@ -26,8 +26,8 @@ services:
     ports:
       - "5030:5030"
     volumes:
-      - ./music_dowloads:/downloads
-      - ./slskd_config:/app/config
+      - ./music_dowloads:/app/downloads
+      - ./slskd_config/slskd.yml:/app/slskd.yml
     environment:
       - SLSKD_REMOTE_CONFIGURATION=true
       - SLSKD_SHARED_DIR=/downloads
