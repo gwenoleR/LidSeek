@@ -2,5 +2,7 @@
 /music_dowloads
 /venv
 /app/logs
-/app/data
+
 /slskd_config
+**/__pycache__
+**/*.db
