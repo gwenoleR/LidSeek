@@ -6,9 +6,11 @@ from services.musicbrainz import MusicBrainzService
 from services.download_manager import DownloadManager
 from services.downloaders import SlskdDownloader
 from services.library import LibraryService
+from services.background_task_manager import BackgroundTaskManager
 from routes.album_routes import album_routes, init_routes as init_album_routes
 from routes.download_routes import download_routes, init_routes as init_download_routes
 from routes.library_routes import library_routes, init_routes as init_library_routes
+import atexit
 
 def create_app():
     app = Flask(__name__)
@@ -43,6 +45,13 @@ def create_app():
     download_manager.download_dir = Config.SLSKD_DOWNLOAD_DIR
     
     library_service = LibraryService(db)
+
+    # Initialisation et démarrage du gestionnaire de tâches en arrière-plan
+    background_task_manager = BackgroundTaskManager()
+    background_task_manager.start_download_monitor(download_manager, interval=Config.DOWNLOAD_CHECK_INTERVAL)
+
+    # Enregistrer la fonction d'arrêt propre
+    atexit.register(background_task_manager.stop_all)
 
     # Enregistrement des routes
     app.register_blueprint(init_album_routes(musicbrainz_service, download_manager))

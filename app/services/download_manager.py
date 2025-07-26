@@ -2,8 +2,23 @@ from database import Database, DownloadStatus
 from utils.logger import setup_logger
 from typing import Dict, List
 import time
-from .downloaders import Downloader, SlskdDownloader
+import re
 import difflib
+import os
+import json
+import logging
+from enum import Enum
+from .downloaders import Downloader, SlskdDownloader, SlskdFileState
+
+class SlskdState(Enum):
+    """États possibles d'un fichier dans Slskd"""
+    REQUESTED = "Requested"
+    QUEUED = "Queued"
+    IN_PROGRESS = "InProgress"
+    COMPLETED = "Completed"
+    COMPLETED_ERRORED = "Completed, Errored"
+    COMPLETED_CANCELLED = "Completed, Cancelled"
+    COMPLETED_TIMEOUT = "Completed, TimedOut"
 
 class DownloadManager:
     def __init__(self, database: Database):
@@ -11,6 +26,23 @@ class DownloadManager:
         self.downloader = None
         self.download_dir = "/tmp/downloads"
         self.logger = setup_logger('download_manager', 'downloads.log')
+
+    def _normalize_path(self, path: str) -> str:
+        """Normalise un chemin pour le système d'exploitation actuel."""
+        return os.path.normpath(path.replace('\\', os.path.sep))
+
+    def _extract_filename(self, path: str) -> str:
+        """Extrait le nom du fichier d'un chemin."""
+        normalized = self._normalize_path(path)
+        self.logger.info(f"Extraction du nom depuis le chemin: '{path}'")
+        self.logger.info(f"Chemin normalisé: '{normalized}'")
+        basename = os.path.basename(normalized)
+        self.logger.info(f"Nom extrait: '{basename}'")
+        return basename
+
+    def _extract_dirname(self, path: str) -> str:
+        """Extrait le nom du dossier d'un chemin."""
+        return os.path.basename(os.path.dirname(self._normalize_path(path)))
 
     def configure_downloader(self, downloader: Downloader):
         """Configure le téléchargeur à utiliser."""
@@ -84,11 +116,25 @@ class DownloadManager:
             self.logger.error(error_msg)
             raise ValueError(error_msg)
 
+        # Vérifier si l'album n'est pas déjà en cours de téléchargement
+        try:
+            downloads = self.downloader.get_downloads_status()
+            for download in downloads:
+                for directory in download.get('directories', []):
+                    if directory.get('directory') == album_info['title']:
+                        self.logger.info(f"L'album {album_info['title']} est déjà en cours de téléchargement")
+                        return True
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la vérification des téléchargements existants: {str(e)}")
+
         query = f"{album_info['artist_name']} {album_info['title']}"
         self.logger.info(f"Démarrage de la recherche pour: {query}")
 
         try:
             search_results = self.downloader.search(query)
+            best_match = None
+            best_match_count = 0
+            best_match_user = None
 
             for result in search_results:
                 username = result['username']
@@ -110,13 +156,22 @@ class DownloadManager:
                             files = directory['files']
                         else:
                             files = directory
-                        if self._album_match(album_info['tracks'], files, username):
-                            self.logger.info(f"Correspondance trouvée! Téléchargement depuis {username}")
-                            files = self._flatten_files_with_path(files)
-                            return self.downloader.start_download(username, files)
+
+                        # Compter le nombre de pistes correspondantes
+                        matching_files = self._get_matching_tracks(album_info['tracks'], files, username)
+                        if matching_files and len(matching_files) > best_match_count:
+                            best_match = matching_files
+                            best_match_count = len(matching_files)
+                            best_match_user = username
+                            
                     except Exception as e:
                         self.logger.error(f"Erreur lors de l'accès au dossier de {username}: {str(e)}")
                         continue
+
+            # Télécharger le meilleur résultat trouvé
+            if best_match and best_match_user:
+                self.logger.info(f"Meilleure correspondance trouvée: {best_match_count} pistes de {best_match_user}")
+                return self.downloader.start_download(best_match_user, best_match)
 
             self.logger.warning(f"Aucune correspondance trouvée pour {query}")
             return False
@@ -124,6 +179,44 @@ class DownloadManager:
         except Exception as e:
             self.logger.error(f"Erreur lors de la recherche: {str(e)}")
             return False
+
+    def _get_matching_tracks(self, tracks: List[dict], slskd_files: List[dict], username: str) -> List[dict]:
+        """Identifie les pistes correspondantes dans les fichiers Slskd."""
+        matching_files = []
+        track_matches = 0
+
+        # Récupérer tous les fichiers à plat
+        flat_files = self._flatten_files_with_path(slskd_files)
+        required_tracks = len(tracks)
+
+        for track in tracks:
+            best_match = None
+            best_ratio = 0
+            track_filename = f"{track['title']}.{self.downloader.allowed_filetypes[0]}"
+
+            for slskd_file in flat_files:
+                if not any(slskd_file['filename'].endswith(ext) for ext in self.downloader.allowed_filetypes):
+                    continue
+
+                filename = slskd_file['filename'].split("\\")[-1]
+                ratio = difflib.SequenceMatcher(None, track_filename, filename).ratio()
+                
+                if ratio > best_ratio and ratio > self.downloader.minimum_match_ratio:
+                    best_ratio = ratio
+                    best_match = slskd_file
+
+            if best_match:
+                track_matches += 1
+                if best_match not in matching_files:  # Éviter les doublons
+                    matching_files.append(best_match)
+
+        # Ne retourner les fichiers que si toutes les pistes sont trouvées
+        if track_matches == required_tracks:
+            self.logger.info(f"Toutes les pistes trouvées ({track_matches}/{required_tracks}) pour {username}")
+            return matching_files
+        
+        self.logger.info(f"Correspondance partielle ({track_matches}/{required_tracks}) pour {username}")
+        return []
 
     def process_pending_downloads(self):
         """Traite les téléchargements en attente."""
@@ -149,28 +242,149 @@ class DownloadManager:
 
     def _check_download_status(self, album: dict):
         """Vérifie l'état d'un téléchargement en cours."""
-        self.logger.debug(f"Vérification du statut pour {album['title']}")
+        self.logger.debug(f"Vérification du statut pour l'album: {album}")
         
         try:
-            downloads = self.downloader.get_downloads_status()
-            completed = True
+            # Récupérer le nom final du dossier de l'album
+            album_folder_name = self._extract_filename(album['title'])
+            self.logger.info(f"Recherche du dossier avec le nom: '{album_folder_name}'")
             
-            for download in downloads:
-                if any(d['directory'] == album['title'] for d in download['directories']):
-                    incomplete_files = [f for f in download['files'] if 'Completed' not in f['state']]
-                    if incomplete_files:
-                        completed = False
-                        self.logger.debug(f"{len(incomplete_files)} fichiers en cours pour {album['title']}")
+            # Récupérer directement les fichiers du dossier
+            files = self.downloader.get_directory_files_status(album_folder_name)
+            if not files:
+                self.logger.warning(f"Album '{album_folder_name}' non trouvé dans les téléchargements actifs")
+                return
+                
+            # Récupérer les pistes de l'album depuis la BDD
+            album_tracks = self.db.get_tracks_status(album['id'])
+            completed_tracks = 0
+            total_tracks = len(album_tracks)  # Utiliser le nombre total de pistes de l'album
+            
+            # Vérifier chaque fichier du répertoire
+            for file in files:
+                file_name = self._extract_filename(file['filename'])
+                state = file.get('state', '')
+                self.logger.debug(f"État du fichier {file_name}: {state}")
+                
+                # Trouver la piste correspondante
+                for track_id, track_info in album_tracks.items():
+                    if self._match_filename_to_track(file_name, track_info.get('title', '')):
+                        if state == SlskdFileState.COMPLETED.value:
+                            self.db.update_track_status(
+                                track_id, 
+                                DownloadStatus.COMPLETED,
+                                file.get('filename')
+                            )
+                            completed_tracks += 1
+                            self.logger.info(f"Piste {track_info.get('title')} marquée comme terminée")
+                        elif SlskdFileState.is_completed_with_error(state):
+                            self.db.update_track_status(track_id, DownloadStatus.ERROR)
+                            self.logger.warning(f"Erreur pour la piste {track_info.get('title')}")
+                        elif SlskdFileState.is_in_progress(state):
+                            self.db.update_track_status(track_id, DownloadStatus.DOWNLOADING)
+                            self.logger.debug(f"Piste {track_info.get('title')} en cours de téléchargement")
                         break
-
-            if completed:
-                self.logger.info(f"Téléchargement terminé pour {album['title']}")
-                self._process_completed_download(album)
+            
+            # Mise à jour du statut de l'album
+            self.logger.info(f"État du téléchargement pour {album_folder_name}: {completed_tracks}/{total_tracks} pistes terminées")
+            if completed_tracks == total_tracks:
                 self.db.update_album_status(album['id'], DownloadStatus.COMPLETED)
+                self._process_completed_download(album)
+            else:
+                self.db.update_album_status(album['id'], DownloadStatus.DOWNLOADING)
                 
         except Exception as e:
             self.logger.error(f"Erreur lors de la vérification du statut: {str(e)}")
+            self.logger.exception("Stack trace complète:")
+
+    def _clean_string(self, text: str) -> str:
+        """Nettoie une chaîne pour la comparaison."""
+        # Enlever l'extension si présente
+        text = text.rsplit('.', 1)[0]
         
+        # Conserver les chiffres et les caractères alphanumériques
+        # Remplacer les caractères spéciaux par des espaces
+        cleaned = ''
+        for c in text:
+            if c.isalnum() or c.isspace():
+                cleaned += c
+            else:
+                cleaned += ' '
+        
+        # Normaliser les espaces multiples
+        cleaned = ' '.join(cleaned.split())
+        
+        return cleaned.strip()
+
+    def _match_filename_to_track(self, filename: str, track_title: str) -> bool:
+        """Compare un nom de fichier avec un titre de piste."""
+        if not track_title:
+            self.logger.warning(f"Titre de piste vide pour le fichier {filename}")
+            return False
+            
+        self.logger.debug(f"Comparaison du fichier '{filename}' avec le titre '{track_title}'")
+        
+        def extract_base_and_part(text):
+            """Extrait le nom de base et le numéro de partie d'un titre."""
+            # Nettoyer le texte
+            text = text.lower()
+            text = text.rsplit('.', 1)[0]  # Enlever l'extension si présente
+            
+            # Patterns pour détecter les parties
+            patterns = [
+                r'^(.*?)\s*(?:pt\.?|part\.?)\s*(\d+)(?:\s*\(.*?\))?\s*$',  # Matches: "Name Pt 1", "Name Part 1 (Live)"
+                r'^(.*?)\s*\(.*?(?:pt\.?|part\.?)\s*(\d+).*?\)\s*$'  # Matches: "Name (Pt 1)", "Name (Part 1 Live)"
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, text)
+                if match:
+                    base = match.group(1).strip()
+                    part = int(match.group(2))
+                    return base, part
+                    
+            return text.strip(), None
+            
+        # Extraire les noms de base et numéros de partie
+        file_base, file_part = extract_base_and_part(filename)
+        title_base, title_part = extract_base_and_part(track_title)
+        
+        self.logger.debug(f"Fichier décomposé: base='{file_base}', partie={file_part}")
+        self.logger.debug(f"Titre décomposé: base='{title_base}', partie={title_part}")
+        
+        # Si les deux ont des numéros de partie différents, pas de correspondance
+        if file_part is not None and title_part is not None and file_part != title_part:
+            self.logger.debug(f"Les numéros de partie ne correspondent pas - Fichier: {file_part}, Titre: {title_part}")
+            return False
+        
+        # Nettoyer les noms de base pour la comparaison
+        clean_file_base = re.sub(r'[^a-z0-9\s]', ' ', file_base)
+        clean_title_base = re.sub(r'[^a-z0-9\s]', ' ', title_base)
+        
+        # Nettoyer les espaces multiples
+        clean_file_base = ' '.join(clean_file_base.split())
+        clean_title_base = ' '.join(clean_title_base.split())
+        
+        # Calculer le ratio de similarité sur les noms de base
+        ratio = difflib.SequenceMatcher(None, clean_file_base, clean_title_base).ratio()
+        self.logger.debug(f"Ratio de similarité des noms de base: {ratio}")
+        
+        # La correspondance est vraie si :
+        # 1. Les noms de base font au moins 4 caractères et correspondent
+        # 2. ET les numéros de partie correspondent (ou sont absents)
+        title_match = len(clean_title_base) >= 4 and clean_title_base in clean_file_base
+        ratio_match = ratio > self.downloader.minimum_match_ratio
+        part_match = file_part == title_part if (file_part is not None and title_part is not None) else True
+        
+        self.logger.debug(f"Correspondance par contenu: {title_match}")
+        self.logger.debug(f"Correspondance par ratio: {ratio_match}")
+        self.logger.debug(f"Correspondance des parties: {part_match}")
+        
+        is_match = (title_match or ratio_match) and part_match
+        self.logger.debug(f"Résultat final de la correspondance: {is_match}")
+        
+        return is_match
+    
     def _process_completed_download(self, album: dict):
         """Traite un album téléchargé."""
         self.logger.info(f"Traitement post-téléchargement pour {album['title']}")
@@ -234,3 +448,48 @@ class DownloadManager:
     def get_pending_tracks(self) -> list:
         """Récupère toutes les pistes en attente de téléchargement."""
         return self.db.get_pending_tracks()
+
+    def clean_filename(self, filename):
+        # Retire l'extension et le numéro de piste au début
+        name = os.path.splitext(filename)[0]
+        name = re.sub(r'^\d+\.\s*', '', name)
+        return name.lower().strip()
+
+    def extract_part_number(self, name):
+        # Cherche un numéro de partie dans le nom (ex: "Pt 1", "Part 2", etc.)
+        match = re.search(r'(?:pt|part)\s*(\d+)', name.lower())
+        return int(match.group(1)) if match else None
+
+    def compare_track_names(self, file_name, track_title):
+        file_clean = self.clean_filename(file_name)
+        track_clean = track_title.lower().strip()
+        
+        # Extrait les numéros de partie
+        file_part = self.extract_part_number(file_clean)
+        track_part = self.extract_part_number(track_clean)
+        
+        # Retire la partie "Pt X" pour la comparaison principale
+        file_base = re.sub(r'\s*(?:pt|part)\s*\d+.*$', '', file_clean)
+        track_base = re.sub(r'\s*(?:pt|part)\s*\d+.*$', '', track_clean)
+        
+        # Compare d'abord les noms de base
+        ratio = difflib.SequenceMatcher(None, file_base, track_base).ratio()
+        base_match = ratio > 0.8
+        
+        # Si les noms de base correspondent et qu'il y a des numéros de partie
+        if base_match and file_part is not None and track_part is not None:
+            return file_part == track_part
+        
+        # Si pas de numéros de partie, utilise juste la correspondance de base
+        return base_match
+
+    def matches_track(self, filename, track_title):
+        """Vérifie si un nom de fichier correspond à un titre de piste."""
+        matches_by_content = self.compare_track_names(filename, track_title)
+        self.logger.debug(f"Comparaison du fichier '{filename}' avec le titre '{track_title}'")
+        
+        if matches_by_content:
+            self.logger.debug("Correspondance trouvée!")
+            return True
+            
+        return False

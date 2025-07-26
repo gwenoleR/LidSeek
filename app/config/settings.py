@@ -11,8 +11,11 @@ class Config:
     FLASK_PORT = 8081
     FLASK_HOST = '0.0.0.0'
     
+    # Intervalle de vérification des téléchargements (en secondes)
+    DOWNLOAD_CHECK_INTERVAL = int(os.getenv('DOWNLOAD_CHECK_INTERVAL', '5'))
+    
     # Configuration Slskd
-    SLSKD_HOST = os.getenv('SLSKD_HOST', 'http://localhost:5030')
+    SLSKD_HOST = os.getenv('SLSKD_HOST', 'http://slskd:5030')
     SLSKD_API_KEY = os.getenv('SLSKD_API_KEY', '')
     SLSKD_URL_BASE = os.getenv('SLSKD_URL_BASE', '/')
     SLSKD_DOWNLOAD_DIR = os.getenv('SLSKD_DOWNLOAD_DIR', '/downloads')

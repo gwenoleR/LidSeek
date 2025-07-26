@@ -115,4 +115,25 @@ def init_routes(musicbrainz_service, download_manager):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @album_routes.route('/album/<album_id>/status', methods=['GET'])
+    def album_status(album_id):
+        try:
+            # Récupérer le statut global de l'album
+            status = download_manager.get_album_status(album_id)
+            # Récupérer le statut détaillé des pistes
+            tracks_status = download_manager.get_tracks_status(album_id)
+            
+            if status:
+                return jsonify({
+                    'status': status[2],
+                    'total_tracks': status[3],
+                    'completed_tracks': status[4],
+                    'tracks': tracks_status
+                })
+            else:
+                return jsonify({'error': 'Album non trouvé'}), 404
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     return album_routes
