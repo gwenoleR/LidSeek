@@ -183,7 +183,7 @@ class SlskdDownloader(Downloader):
             bool: True si l'opération a réussi, False sinon
         """
         try:
-            return self.client.transfers.clear_completed()
+            return self.client.transfers.remove_completed_downloads()
         except Exception as e:
             self.logger.error(f"Erreur lors du nettoyage des téléchargements terminés: {str(e)}")
             return False
