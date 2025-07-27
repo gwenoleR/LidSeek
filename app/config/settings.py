@@ -22,3 +22,6 @@ class Config:
     SLSKD_ALLOWED_FILETYPES = os.getenv('SLSKD_ALLOWED_FILETYPES', 'mp3,flac').split(',')
     SLSKD_IGNORED_USERS = os.getenv('SLSKD_IGNORED_USERS', '').split(',')
     SLSKD_MIN_MATCH_RATIO = float(os.getenv('SLSKD_MIN_MATCH_RATIO', '0.5'))
+    
+    # Configuration du dossier de destination
+    FORMATTED_SONGS_DIR = os.getenv('FORMATTED_SONGS_DIR', '/formatted_songs')

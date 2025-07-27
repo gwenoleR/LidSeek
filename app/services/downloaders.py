@@ -176,6 +176,18 @@ class SlskdDownloader(Downloader):
             self.logger.error(f"Erreur lors de l'annulation: {str(e)}")
             return False
             
+    def clear_completed_downloads(self) -> bool:
+        """Nettoie tous les téléchargements terminés de la file.
+        
+        Returns:
+            bool: True si l'opération a réussi, False sinon
+        """
+        try:
+            return self.client.transfers.clear_completed()
+        except Exception as e:
+            self.logger.error(f"Erreur lors du nettoyage des téléchargements terminés: {str(e)}")
+            return False
+            
     def _get_download_by_directory(self, directory_name: str) -> Dict:
         """Trouve un téléchargement par son nom de dossier.
         

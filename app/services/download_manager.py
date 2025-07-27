@@ -7,8 +7,10 @@ import difflib
 import os
 import json
 import logging
+import shutil
 from enum import Enum
 from .downloaders import Downloader, SlskdDownloader, SlskdFileState
+from config.settings import Config
 
 class SlskdState(Enum):
     """États possibles d'un fichier dans Slskd"""
@@ -359,10 +361,61 @@ class DownloadManager:
         return is_match
     
     def _process_completed_download(self, album: dict):
-        """Traite un album téléchargé."""
+        """Traite un album téléchargé en déplaçant et renommant les fichiers."""
         self.logger.info(f"Traitement post-téléchargement pour {album['title']}")
-        # À implémenter : organisation des fichiers téléchargés
-        pass
+        
+        try:
+            # 1. Obtenir les informations de l'album depuis la BDD
+            album_status = self.db.get_album_status(album['id'])
+            if not album_status:
+                self.logger.error(f"Album {album['id']} non trouvé dans la base de données")
+                return
+
+            # Récupérer les pistes et leur statut
+            tracks = self.db.get_tracks_status(album['id'])
+            if not tracks:
+                self.logger.error(f"Aucune piste trouvée pour l'album {album['id']}")
+                return
+
+            # 2. Créer le dossier de destination avec l'artiste et l'année
+            year = album.get('release_date', '').split('-')[0] if album.get('release_date') else ''
+            artist_dir = os.path.join(Config.FORMATTED_SONGS_DIR, album['artist_name'])
+            album_dir_name = f"{album['title']} ({year})" if year else album['title']
+            destination_dir = os.path.join(artist_dir, album_dir_name)
+            os.makedirs(destination_dir, exist_ok=True)
+
+            # 3. Déplacer et renommer chaque fichier
+            for track_id, track_info in tracks.items():
+                if track_info['status'] != DownloadStatus.COMPLETED.value or not track_info['local_path']:
+                    continue
+
+                # Construire le nouveau nom de fichier avec le bon numéro de piste
+                track_number = str(track_info.get('position', '')).zfill(2)  # Convertir en string et padding avec des zéros
+                track_title = track_info['title']
+                ext = os.path.splitext(track_info['local_path'])[1]
+                new_filename = f"{track_number} - {track_title}{ext}"
+                
+                # Construire les chemins source et destination
+                src_path = os.path.join(self.download_dir, track_info['local_path'])
+                dst_path = os.path.join(destination_dir, new_filename)
+
+                # Déplacer le fichier avec shutil.move
+                if os.path.exists(src_path):
+                    try:
+                        shutil.move(src_path, dst_path)
+                        self.logger.info(f"Fichier déplacé: {src_path} -> {dst_path}")
+                    except Exception as e:
+                        self.logger.error(f"Erreur lors du déplacement du fichier: {str(e)}")
+                else:
+                    self.logger.warning(f"Fichier source non trouvé: {src_path}")
+
+            # 4. Nettoyer la file Slskd une fois terminé
+            self.downloader.clear_completed_downloads()
+            self.logger.info("File de téléchargement nettoyée")
+
+        except Exception as e:
+            self.logger.error(f"Erreur lors du traitement post-téléchargement: {str(e)}")
+            self.logger.exception("Stack trace complète:")
 
     def queue_album(self, album_id: str, artist_id: str, album_info: dict) -> None:
         """Ajoute un album et ses pistes à la file de téléchargement."""

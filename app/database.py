@@ -188,7 +188,7 @@ class Database:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT 
-                    a.id, a.title, a.artist_id,
+                    a.id, a.title, a.artist_id, a.release_date,
                     ar.name as artist_name
                 FROM albums a
                 JOIN artists ar ON a.artist_id = ar.id
@@ -221,19 +221,20 @@ class Database:
             
         Returns:
             Un dictionnaire avec les clés étant les IDs des pistes et les valeurs contenant
-            'status', 'local_path' et 'title'
+            'status', 'local_path', 'position' et 'title'
         """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, status, local_path, title
+                SELECT id, status, local_path, position, title
                 FROM tracks
                 WHERE album_id = ?
             ''', (album_id,))
             return {row[0]: {
                 'status': row[1], 
                 'local_path': row[2],
-                'title': row[3]
+                'position': row[3],
+                'title': row[4]
             } for row in cursor.fetchall()}
 
     def cancel_download(self, album_id):
