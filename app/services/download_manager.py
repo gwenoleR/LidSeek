@@ -265,6 +265,12 @@ class DownloadManager:
             # Vérifier chaque fichier du répertoire
             for file in files:
                 file_name = self._extract_filename(file['filename'])
+                
+                normalized_filename = os.path.normpath(file['filename'].replace('\\', os.path.sep))
+                local_trackname =  os.path.basename( normalized_filename)
+                local_foldername = os.path.basename(os.path.split( normalized_filename)[0])
+                local_path = f"{local_foldername}/{local_trackname}"
+                
                 state = file.get('state', '')
                 self.logger.debug(f"État du fichier {file_name}: {state}")
                 
@@ -275,7 +281,7 @@ class DownloadManager:
                             self.db.update_track_status(
                                 track_id, 
                                 DownloadStatus.COMPLETED,
-                                file.get('filename')
+                                local_path
                             )
                             completed_tracks += 1
                             self.logger.info(f"Piste {track_info.get('title')} marquée comme terminée")
