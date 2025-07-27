@@ -1,18 +1,23 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-COPY app/ /app/
+# Copier les fichiers nécessaires pour l'installation
+COPY setup.py .
 COPY requirements.txt .
+COPY app app/
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Installer les dépendances et le package en mode éditable
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install -e .
 
 # Créer le dossier de téléchargement
 RUN mkdir -p /downloads
 
 EXPOSE 8081
 
+ENV PYTHONPATH=/usr/src/app
+ENV FLASK_APP=app.main:create_app
 ENV FLASK_ENV=development
-ENV FLASK_APP=main.py
 
-CMD ["flask", "--app=main", "--debug", "run", "--host=0.0.0.0", "--port=8081"]
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=8081"]

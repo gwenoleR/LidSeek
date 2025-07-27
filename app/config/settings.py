@@ -25,3 +25,6 @@ class Config:
     
     # Configuration du dossier de destination
     FORMATTED_SONGS_DIR = os.getenv('FORMATTED_SONGS_DIR', '/formatted_songs')
+
+    # Database
+    DATABASE_PATH = os.getenv('DATABASE_PATH', '/data/downloads.db')

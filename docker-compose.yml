@@ -9,8 +9,10 @@ services:
       - REDIS_HOST=redis
       - SLSKD_HOST=http://slskd:5030
       - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
+      - DATABASE_PATH=/data/downloads.db
     volumes:
-      - ./app:/app
+      - ./app:/usr/src/app/app
+      - ./data:/data
       - ./music_dowloads:/downloads
       - ./formatted_songs:/formatted_songs
     depends_on:

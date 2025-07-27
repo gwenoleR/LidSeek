@@ -10,14 +10,40 @@ class DownloadStatus(Enum):
     ERROR = "error"
 
 class Database:
+    _memory_connection = None
+
     def __init__(self, db_path="data/downloads.db"):
         self.db_path = db_path
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Création du dossier si nécessaire
+        if db_path != ":memory:":
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self.init_db()
+
+    def _get_connection(self):
+        """Retourne une connexion à la base de données."""
+        if self.db_path == ":memory:":
+            if Database._memory_connection is None:
+                Database._memory_connection = sqlite3.connect(self.db_path)
+                # Activer les foreign keys pour la base en mémoire
+                Database._memory_connection.execute("PRAGMA foreign_keys = ON")
+            return Database._memory_connection
+        else:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("PRAGMA foreign_keys = ON")
+            return conn
+
+    @classmethod
+    def close_memory_connection(cls):
+        """Ferme la connexion en mémoire si elle existe."""
+        if cls._memory_connection is not None:
+            try:
+                cls._memory_connection.close()
+            finally:
+                cls._memory_connection = None
 
     def init_db(self):
         """Initialise la base de données avec les tables nécessaires."""
-        with sqlite3.connect(self.db_path) as conn:
+        conn = self._get_connection()
+        try:
             cursor = conn.cursor()
             
             # Table des artistes
@@ -61,10 +87,13 @@ class Database:
             ''')
 
             conn.commit()
+        finally:
+            if self.db_path != ":memory:":
+                conn.close()
 
     def add_artist(self, artist_id, name):
         """Ajoute ou met à jour un artiste."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT OR REPLACE INTO artists (id, name)
@@ -74,7 +103,7 @@ class Database:
 
     def add_album(self, album_id, artist_id, title, release_date=None, cover_url=None):
         """Ajoute ou met à jour un album."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT OR REPLACE INTO albums (id, artist_id, title, release_date, cover_url, status)
@@ -84,7 +113,7 @@ class Database:
 
     def add_track(self, track_id, album_id, title, position=None, length=None):
         """Ajoute ou met à jour une piste."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT OR REPLACE INTO tracks (id, album_id, title, position, length, status)
@@ -94,7 +123,7 @@ class Database:
 
     def update_track_status(self, track_id, status, local_path=None):
         """Met à jour le statut d'une piste."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             if status == DownloadStatus.COMPLETED:
                 cursor.execute('''
@@ -112,7 +141,7 @@ class Database:
 
     def update_album_status(self, album_id, status):
         """Met à jour le statut d'un album."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             if status == DownloadStatus.COMPLETED:
                 cursor.execute('''
@@ -130,7 +159,7 @@ class Database:
 
     def get_pending_tracks(self):
         """Récupère toutes les pistes en attente de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT t.id, t.album_id, t.title, t.position, a.artist_id, ar.name
@@ -143,7 +172,7 @@ class Database:
 
     def get_pending_albums(self):
         """Récupère tous les albums en attente de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute('''
@@ -183,7 +212,7 @@ class Database:
 
     def get_downloading_albums(self):
         """Récupère tous les albums en cours de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute('''
@@ -199,7 +228,7 @@ class Database:
 
     def get_album_status(self, album_id):
         """Récupère le statut d'un album et ses pistes."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT 
@@ -223,7 +252,7 @@ class Database:
             Un dictionnaire avec les clés étant les IDs des pistes et les valeurs contenant
             'status', 'local_path', 'position' et 'title'
         """
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT id, status, local_path, position, title
@@ -239,7 +268,7 @@ class Database:
 
     def cancel_download(self, album_id):
         """Annule le téléchargement d'un album et de ses pistes."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             
             # Supprimer les pistes de l'album
@@ -255,3 +284,19 @@ class Database:
             ''', (album_id,))
             
             conn.commit()
+
+    def cleanup(self):
+        """Nettoie la base de données et ferme la connexion."""
+        if self.db_path == ":memory:":
+            Database.close_memory_connection()
+        else:
+            conn = self._get_connection()
+            try:
+                cursor = conn.cursor()
+                # Supprime toutes les données des tables
+                cursor.execute("DELETE FROM tracks")
+                cursor.execute("DELETE FROM albums")
+                cursor.execute("DELETE FROM artists")
+                conn.commit()
+            finally:
+                conn.close()

@@ -7,3 +7,7 @@
 /slskd_config
 **/__pycache__
 **/*.db
+
+*.log
+.coverage
+**.egg-info

@@ -1,5 +1,5 @@
-from database import Database, DownloadStatus
-from utils.logger import setup_logger
+from ..database import Database, DownloadStatus
+from ..utils.logger import setup_logger
 from typing import Dict, List
 import time
 import re
@@ -10,7 +10,7 @@ import logging
 import shutil
 from enum import Enum
 from .downloaders import Downloader, SlskdDownloader, SlskdFileState
-from config.settings import Config
+from ..config.settings import Config
 
 class SlskdState(Enum):
     """États possibles d'un fichier dans Slskd"""
@@ -457,8 +457,8 @@ class DownloadManager:
                     track['id'],
                     album_id,
                     track['title'],
-                    track['position'],
-                    track['length']
+                    track.get('position'),
+                    track.get('length')
                 )
 
     def cancel_album(self, album_id: str) -> None:
