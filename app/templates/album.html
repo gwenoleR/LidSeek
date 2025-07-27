@@ -238,7 +238,7 @@
                     {% if album.download_status %}
                         <div class="download-status status-{{ album.download_status }}">
                             {% if album.download_status == 'pending' %}
-                                En attente de téléchargement
+                                En attente...
                                 <button 
                                     class="cancel-button" 
                                     onclick="cancelDownload('{{ album.id }}')"
@@ -322,6 +322,17 @@
 
     <script>
     function queueDownload(albumId) {
+        // Mettre à jour l'interface immédiatement
+        const downloadButton = document.querySelector('.download-button');
+        if (downloadButton) {
+            downloadButton.style.display = 'none';
+        }
+        const statusDiv = document.querySelector('.download-status') || document.createElement('div');
+        statusDiv.className = 'download-status status-waiting';
+        statusDiv.textContent = 'En attente...';
+        downloadButton.parentNode.appendChild(statusDiv);
+
+        // Envoyer la requête
         fetch(`/download/album/${albumId}`, {
             method: 'POST',
             headers: {
@@ -335,13 +346,19 @@
         .then(data => {
             if (data.error) {
                 alert('Erreur : ' + data.error);
+                // Restaurer le bouton en cas d'erreur
+                downloadButton.style.display = 'inline-block';
+                statusDiv.remove();
             } else {
-                // Recharger la page pour afficher le nouveau statut
-                window.location.reload();
+                // Démarrer les mises à jour de statut
+                startStatusUpdates();
             }
         })
         .catch(error => {
             alert('Erreur lors de la requête : ' + error);
+            // Restaurer le bouton en cas d'erreur
+            downloadButton.style.display = 'inline-block';
+            statusDiv.remove();
         });
     }
 

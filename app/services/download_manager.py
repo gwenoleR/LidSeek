@@ -222,11 +222,12 @@ class DownloadManager:
         """Traite les téléchargements en attente."""
         self.logger.info("Début du traitement des téléchargements en attente")
         
+        # Traiter les albums en attente
         pending_albums = self.db.get_pending_albums()
         self.logger.info(f"Nombre d'albums en attente: {len(pending_albums)}")
         
         for album in pending_albums:
-            self.logger.info(f"Traitement de l'album: {album['title']} de {album['artist_name']}")
+            self.logger.info(f"Traitement de l'album en attente: {album['title']} de {album['artist_name']}")
             success = self._search_and_download(album)
             if success:
                 self.logger.info(f"Téléchargement initié pour {album['title']}")
@@ -235,6 +236,7 @@ class DownloadManager:
                 self.logger.warning(f"Échec du téléchargement pour {album['title']}")
                 self.db.update_album_status(album['id'], DownloadStatus.ERROR)
 
+        # Ensuite vérifier les téléchargements en cours
         downloading_albums = self.db.get_downloading_albums()
         self.logger.info(f"Vérification de {len(downloading_albums)} téléchargements en cours")
         for album in downloading_albums:
@@ -386,6 +388,8 @@ class DownloadManager:
             release_date,
             album_info.get('cover_url')
         )
+
+        self.db.update_album_status(album_id, DownloadStatus.PENDING)
 
         # Et enfin les pistes
         for track in album_info['tracks']:
