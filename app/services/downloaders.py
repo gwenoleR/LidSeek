@@ -3,7 +3,7 @@ from typing import Dict, List, Union
 import slskd_api
 import time
 import difflib
-from ..utils.logger import setup_logger
+from utils.logger import setup_logger
 from enum import Enum
 
 class SlskdFileState(Enum):

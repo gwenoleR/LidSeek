@@ -1,15 +1,15 @@
 import redis
 from flask import Flask, render_template
-from app.config.settings import Config
-from app.database import Database
-from app.services.musicbrainz import MusicBrainzService
-from app.services.download_manager import DownloadManager
-from app.services.downloaders import SlskdDownloader
-from app.services.library import LibraryService
-from app.services.background_task_manager import BackgroundTaskManager
-from app.routes.album_routes import album_routes, init_routes as init_album_routes
-from app.routes.download_routes import download_routes, init_routes as init_download_routes
-from app.routes.library_routes import library_routes, init_routes as init_library_routes
+from config.settings import Config
+from database import Database
+from services.musicbrainz import MusicBrainzService
+from services.download_manager import DownloadManager
+from services.downloaders import SlskdDownloader
+from services.library import LibraryService
+from services.background_task_manager import BackgroundTaskManager
+from routes.album_routes import album_routes, init_routes as init_album_routes
+from routes.download_routes import download_routes, init_routes as init_download_routes
+from routes.library_routes import library_routes, init_routes as init_library_routes
 import atexit
 
 def create_app():
@@ -22,7 +22,7 @@ def create_app():
         decode_responses=True
     )
     
-    db = Database(Config.DATABASE_PATH)
+    db = Database()
     musicbrainz_service = MusicBrainzService(
         Config.USER_AGENT,
         redis_client,
