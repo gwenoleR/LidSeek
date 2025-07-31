@@ -24,7 +24,7 @@ class TrackMatcher:
     def _clean_track_name(self, name: str) -> str:
         """Nettoie un nom de piste pour la comparaison."""
         # Enlever l'extension
-        name = name.rsplit('.', 1)[0]
+        name = ".".join(name.split('.')[:-1])
         
         # Enlever les caractères spéciaux et convertir en minuscules
         name = re.sub(r'[^\w\s]', '', name.lower())
@@ -65,6 +65,7 @@ class TrackMatcher:
                 if file in matching_files:
                     continue
                     
+                self.logger.debug(f'Compare {file.filename} to {track_title}')
                 ratio = self.compare_track_names(file.filename, track_title)
                 if ratio > best_ratio:
                     best_ratio = ratio

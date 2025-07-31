@@ -52,10 +52,14 @@ class SlskFile:
     def from_response(cls, response: dict) -> 'SlskFile':
         """Crée une instance à partir d'une réponse Soulseek."""
         attributes = [SlskAttribute.from_response(attr) for attr in response.get('attributes', [])]
+        extension = response.get('extension')
+        if not extension or len(extension) == 0:
+            extension = response['filename'].split('.')[-1].lower() if '.' in response['filename'] else ''
+
         return cls(
             filename=response['filename'],
             size=response['size'],
-            extension=response.get('extension', response['filename'].split('.')[-1].lower() if '.' in response['filename'] else ''),
+            extension=extension,
             attributes=attributes,
             speed=response.get('speed', 0),
             queue_length=response.get('queue_length', 0),
