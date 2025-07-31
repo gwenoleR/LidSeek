@@ -5,6 +5,9 @@ import time
 import difflib
 from utils.logger import setup_logger
 from enum import Enum
+import os
+from typing import List, Dict, Optional
+from .slsk_models import SlskDirectory, SlskFile, SlskSearchResult
 
 class SlskdFileState(Enum):
     """États possibles d'un fichier dans Slskd"""
@@ -79,6 +82,10 @@ class SlskdDownloader(Downloader):
     def __init__(self):
         super().__init__()
         self.client = None
+        self.logger = setup_logger('slskd_downloader', 'downloads.log')
+        self.ignored_users = []
+        self.allowed_filetypes = ["mp3", "flac"]
+        self.minimum_match_ratio = 0.5
         
     def configure(self, host_url: str, api_key: str, url_base: str = '/'):
         try:
@@ -92,14 +99,14 @@ class SlskdDownloader(Downloader):
             self.logger.error(f"Erreur lors de la configuration de Slskd: {str(e)}")
             raise
             
-    def search(self, query: str) -> List[Dict]:
+    def search(self, query: str) -> List[SlskSearchResult]:
         """Effectue une recherche.
         
         Args:
             query: Le texte à rechercher
             
         Returns:
-            Liste des résultats de recherche
+            Liste des résultats de recherche sous forme d'objets SlskSearchResult
         """
         if not self.client:
             raise ValueError("Slskd n'est pas configuré")
@@ -121,36 +128,37 @@ class SlskdDownloader(Downloader):
                 break
             time.sleep(1)
             
-        # Récupérer les résultats
-        return self.client.searches.search_responses(search['id'])
+        # Convertir les résultats en objets SlskSearchResult
+        raw_results = self.client.searches.search_responses(search['id'])
+        return [SlskSearchResult.from_response(result) for result in raw_results]
         
-    def get_directory_content(self, username: str, directory: str) -> List[Dict]:
+    def get_directory_content(self, username: str, directory: str) -> SlskDirectory:
         """Récupère le contenu d'un répertoire.
         
         Returns:
-            Une liste de fichiers/dossiers. Chaque élément peut avoir:
-            - filename: nom du fichier
-            - size: taille du fichier
-            - files: liste de sous-fichiers si c'est un dossier
+            Une liste de fichiers convertis en objets SlskFile
         """
+        self.logger.debug(f"Recherche dans le dossier \"{directory}\" pour le user: {username}")
         response = self.client.users.directory(username=username, directory=directory)
         if not isinstance(response, list):
             self.logger.warning(f"Réponse inattendue de directory(): {type(response)}")
             return []
-        return response
-        
-    def start_download(self, username: str, files: List[Dict]) -> bool:
+        if(len(response) == 0):
+            return []
+        return SlskDirectory.from_response(response[0])
+
+    def start_download(self, username: str, directory: str, files: List[SlskFile]) -> bool:
         """Démarre le téléchargement des fichiers.
         
         Args:
             username: Nom de l'utilisateur source
-            files: Liste des fichiers à télécharger, chaque fichier doit avoir:
-                  - filename: chemin complet du fichier
-                  - size: taille du fichier
+            files: Liste des fichiers à télécharger (objets SlskFile)
         """
         self.logger.info(f"Démarrage du téléchargement de {len(files)} fichiers de {username}")
         try:
-            return self.client.transfers.enqueue(username=username, files=files)
+            # Convertir les SlskFile en dictionnaires pour l'API
+            files_data = [{'filename': f"{os.path.normpath(directory)}\\{f.filename}", 'size': f.size} for f in files]
+            return self.client.transfers.enqueue(username=username, files=files_data)
         except Exception as e:
             self.logger.error(f"Erreur lors du téléchargement: {str(e)}")
             return False

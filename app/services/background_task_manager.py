@@ -1,5 +1,6 @@
 import threading
 import time
+from .download_manager import DownloadManager
 from utils.logger import setup_logger
 
 class BackgroundTaskManager:
@@ -9,7 +10,7 @@ class BackgroundTaskManager:
         self.processing_lock = threading.Lock()
         self.logger = setup_logger('background_tasks', 'background_tasks.log')
 
-    def start_download_monitor(self, download_manager, interval=5):
+    def start_download_monitor(self, download_manager: DownloadManager, interval=5):
         """Démarre la surveillance des téléchargements en arrière-plan."""
         def monitor_downloads():
             self.logger.info("Démarrage de la surveillance des téléchargements")
@@ -19,7 +20,7 @@ class BackgroundTaskManager:
                     if self.processing_lock.acquire(blocking=False):
                         try:
                             # Vérifier uniquement les albums en cours de téléchargement
-                            downloading_albums = download_manager.db.get_downloading_albums()
+                            downloading_albums = download_manager.status_tracker.get_downloading_albums()
                             if downloading_albums:
                                 self.logger.info(f"Vérification de {len(downloading_albums)} téléchargements actifs")
                                 for album in downloading_albums:
@@ -40,8 +41,11 @@ class BackgroundTaskManager:
 
     def stop_all(self):
         """Arrête toutes les tâches d'arrière-plan."""
+        self.logger.info("Arrêt des tâches en arrière-plan...")
         self.stop_event.set()
+        
         for thread in self.threads:
             thread.join()
+        
         self.threads.clear()
-        self.logger.info("Toutes les tâches d'arrière-plan ont été arrêtées")
+        self.logger.info("Toutes les tâches arrêtées")
