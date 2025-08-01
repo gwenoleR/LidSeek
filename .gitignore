@@ -1,5 +1,5 @@
 /slskd_config
-/music_dowloads
+/music_downloads
 /formatted_songs
 /venv
 /app/logs
@@ -7,3 +7,5 @@
 /slskd_config
 **/__pycache__
 **/*.db
+
+todo.md

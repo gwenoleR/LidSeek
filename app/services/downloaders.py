@@ -183,6 +183,19 @@ class SlskdDownloader(Downloader):
         except Exception as e:
             self.logger.error(f"Erreur lors de l'annulation: {str(e)}")
             return False
+    
+    def remove_download(self, username: str, id: str) -> bool:
+        """Supprime un téléchargement spécifique.
+        
+        Args:
+            username: Nom de l'utilisateur source
+            id: Identifiant du téléchargement
+        """
+        try:
+            return self.client.transfers.cancel_download(username=username, id=id, remove=True)
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la suppression: {str(e)}")
+            return False
             
     def clear_completed_downloads(self) -> bool:
         """Nettoie tous les téléchargements terminés de la file.

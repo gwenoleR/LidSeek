@@ -56,6 +56,7 @@ class Database:
                     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     download_date TIMESTAMP,
                     local_path TEXT,
+                    slsk_id TEXT,
                     FOREIGN KEY (album_id) REFERENCES albums (id)
                 )
             ''')
@@ -92,22 +93,22 @@ class Database:
             ''', (track_id, album_id, title, position, length, DownloadStatus.PENDING.value))
             conn.commit()
 
-    def update_track_status(self, track_id, status, local_path=None):
+    def update_track_status(self, track_id, status, local_path=None, slsk_id=None):
         """Met à jour le statut d'une piste."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             if status == DownloadStatus.COMPLETED:
                 cursor.execute('''
                     UPDATE tracks 
-                    SET status = ?, download_date = ?, local_path = ?
+                    SET status = ?, download_date = ?, local_path = ?, slsk_id = ?
                     WHERE id = ?
-                ''', (status.value, datetime.now(), local_path, track_id))
+                ''', (status.value, datetime.now(), local_path, slsk_id, track_id))
             else:
                 cursor.execute('''
                     UPDATE tracks 
-                    SET status = ?
+                    SET status = ?, slsk_id = ?
                     WHERE id = ?
-                ''', (status.value, track_id))
+                ''', (status.value, slsk_id , track_id))
             conn.commit()
 
     def update_album_status(self, album_id, status):
@@ -226,7 +227,7 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, status, local_path, position, title
+                SELECT id, status, local_path, position, title, slsk_id
                 FROM tracks
                 WHERE album_id = ?
             ''', (album_id,))
@@ -234,7 +235,8 @@ class Database:
                 'status': row[1], 
                 'local_path': row[2],
                 'position': row[3],
-                'title': row[4]
+                'title': row[4],
+                'slsk_id': row[5]
             } for row in cursor.fetchall()}
 
     def cancel_download(self, album_id):

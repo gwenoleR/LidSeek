@@ -24,7 +24,7 @@ class TrackMatcher:
     def _clean_track_name(self, name: str) -> str:
         """Nettoie un nom de piste pour la comparaison."""
         # Enlever l'extension
-        name = ".".join(name.split('.')[:-1])
+        name = name.rsplit('.', 1)[0]
         
         # Enlever les caractères spéciaux et convertir en minuscules
         name = re.sub(r'[^\w\s]', '', name.lower())
@@ -34,7 +34,7 @@ class TrackMatcher:
         
         return name.strip()
 
-    def find_matching_tracks(self, wanted_tracks: List[Dict], available_files: SlskDirectory, allowed_extensions: List[str]) -> List[SlskFile]:
+    def find_matching_tracks(self, wanted_tracks: List[Dict], available_files: SlskDirectory, allowed_extensions: List[str]) -> Dict[str, SlskFile]:
         """Trouve les fichiers correspondant aux pistes voulues.
         
         Args:
@@ -43,9 +43,9 @@ class TrackMatcher:
             allowed_extensions: Liste des extensions de fichier autorisées
         
         Returns:
-            Liste des fichiers correspondants
+            Dictionnaire avec l'ID de la piste voulue comme clé et le fichier correspondant comme valeur
         """
-        matching_files: List[SlskFile] = []
+        matching_files: Dict[str, SlskFile] = {}
         matched_tracks = set()  # Pour éviter les doublons
         
         # Filtrer d'abord par extension
@@ -53,8 +53,9 @@ class TrackMatcher:
         self.logger.debug(f"Valid files on folder {available_files.name}: {valid_files}")
         
         for track in wanted_tracks:
+            track_id = track.get('id')
             track_title = track.get('title', '')
-            if not track_title:
+            if not track_title or not track_id:
                 continue
                 
             best_match = None
@@ -62,18 +63,17 @@ class TrackMatcher:
             
             for file in valid_files:
                 # Éviter les fichiers déjà matchés
-                if file in matching_files:
+                if file in matching_files.values():
                     continue
                     
-                self.logger.debug(f'Compare {file.filename} to {track_title}')
                 ratio = self.compare_track_names(file.filename, track_title)
                 if ratio > best_ratio:
                     best_ratio = ratio
                     best_match = file
             
-            if best_match and best_match not in matching_files:
-                self.logger.info(f"Match trouvé: '{track_title}' -> '{best_match.filename}' (ratio: {best_ratio:.2f})")
-                matching_files.append(best_match)
+            if best_match and best_match not in matching_files.values():
+                self.logger.info(f"Match trouvé: Track ID '{track_id}' - '{track_title}' -> '{best_match.filename}' (ratio: {best_ratio:.2f})")
+                matching_files[track_id] = best_match
                 matched_tracks.add(track_title)
         
         # Log des pistes non trouvées

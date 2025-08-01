@@ -11,9 +11,9 @@ class DownloadStatusTracker:
         """Met à jour le statut d'un album."""
         self.db.update_album_status(album_id, status)
 
-    def update_track_status(self, track_id: str, status: DownloadStatus, local_path: Optional[str] = None) -> None:
+    def update_track_status(self, track_id: str, status: DownloadStatus, local_path: Optional[str] = None, slsk_id: Optional[str] = None) -> None:
         """Met à jour le statut d'une piste."""
-        self.db.update_track_status(track_id, status, local_path)
+        self.db.update_track_status(track_id, status, local_path, slsk_id)
 
     def get_album_status(self, album_id: str) -> tuple:
         """Récupère le statut d'un album."""

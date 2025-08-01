@@ -152,14 +152,16 @@ class DownloadManager:
                     # Log des fichiers trouvés pour le débogage
                     if matching_files:
                         self.logger.info(f"Fichiers correspondants trouvés ({len(matching_files)}):")
-                        for f in matching_files:
-                            self.logger.info(f"  - {f.filename}")
+                        for track_id, file in matching_files.items():
+                            self.logger.info(f"  - Track ID: {track_id} -> {file.filename}")
 
                     if matching_files and len(matching_files) > best_match_count:
                         best_directory_path = directory_path
                         best_result = result
                         best_match_count = len(matching_files)
-                        best_files = matching_files
+                        best_files = matching_files.values()
+                        for track_id, file in matching_files.items():
+                            self.status_tracker.update_track_status(track_id,DownloadStatus.PENDING,None,file.filename)
 
                 except Exception as e:
                     self.logger.warning(f"Erreur lors du traitement des fichiers de {result.username}: {str(e)}")
@@ -194,7 +196,7 @@ class DownloadManager:
             total_tracks = len(tracks)
 
             for track_id, track_info in tracks.items():
-                self.logger.debug(f"Search matching for {track_info['title']} on donwload list.")
+                self.logger.debug(f"Recherche de correspondance pour la piste {track_id} : {track_info['title']} dans la liste des téléchargements.")
                 for file in files:
                     file_name = self.filesystem.extract_filename(file['filename'])
                     normalized_path = self.filesystem.normalize_path(file['filename'])
@@ -202,19 +204,22 @@ class DownloadManager:
 
                     ratio = self.track_matcher.compare_track_names(f"{track_info['title']}.fakeext", file_name)
 
-                    if ratio > 0.7:
+                    if file_name == track_info['slsk_id']:
                         self.logger.debug(f"File status: {file['state']}")
                         if file['state'] == 'Completed, Succeeded':
                             self.status_tracker.update_track_status(
                                 track_id,
                                 DownloadStatus.COMPLETED,
-                                local_path
+                                local_path,
+                                track_info['slsk_id']
                             )
                             completed_tracks += 1
                         elif file['state'] == 'InProgress':
                             self.status_tracker.update_track_status(
                                 track_id,
                                 DownloadStatus.DOWNLOADING,
+                                None,
+                                track_info['slsk_id']
                             )
                         elif 'Completed' in file['state'] and 'Error' in file['state']:
                             self.status_tracker.update_track_status(track_id, DownloadStatus.ERROR)
@@ -223,26 +228,6 @@ class DownloadManager:
 
            
             self.logger.debug(f"Total files: {len(files)}")
-            # # Vérifier chaque fichier
-            # for file in files:
-            #     file_name = self.filesystem.extract_filename(file['filename'])
-            #     normalized_path = self.filesystem.normalize_path(file['filename'])
-            #     local_path = f"{os.path.basename(os.path.dirname(normalized_path))}/{os.path.basename(normalized_path)}"
-            #     self.logger.debug(f"File to check status {file_name}")
-
-            #     # Mettre à jour le statut des pistes
-            #     for track_id, track_info in tracks.items():
-            #         self.logger.debug(f"File id to update: {track_id} {track_info}")
-            #         if file['state'] == 'Completed, Succeeded':
-            #             self.status_tracker.update_track_status(
-            #                 track_id,
-            #                 DownloadStatus.COMPLETED,
-            #                 local_path
-            #             )
-            #             completed_tracks += 1
-            #         elif 'Completed' in file['state'] and 'Error' in file['state']:
-            #             self.status_tracker.update_track_status(track_id, DownloadStatus.ERROR)
-            #         break
 
             # Mettre à jour le statut de l'album
             self.status_tracker.update_album_progress(album, completed_tracks, total_tracks)
@@ -250,7 +235,9 @@ class DownloadManager:
             # Traiter l'album s'il est terminé
             if completed_tracks == total_tracks:
                 self.album_processor.process_completed_album(album)
-                self.downloader.clear_completed_downloads()
+                for downloadedFile in files:
+                    self.downloader.remove_download(downloadedFile['username'], downloadedFile['id'], )
+                    # self.downloader.clear_completed_downloads()
 
         except Exception as e:
             self.logger.error(f"Erreur lors de la vérification du statut: {str(e)}")

@@ -11,7 +11,7 @@ services:
       - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
     volumes:
       - ./app:/app
-      - ./music_dowloads:/downloads
+      - ./music_downloads:/downloads
       - ./formatted_songs:/formatted_songs
     depends_on:
       - redis
@@ -27,7 +27,7 @@ services:
     ports:
       - "5030:5030"
     volumes:
-      - ./music_dowloads:/app/downloads
+      - ./music_downloads:/app/downloads
       - ./slskd_config/slskd.yml:/app/slskd.yml
     environment:
       - SLSKD_REMOTE_CONFIGURATION=true
