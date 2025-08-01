@@ -23,15 +23,15 @@ class TrackMatcher:
 
     def _clean_track_name(self, name: str) -> str:
         """Nettoie un nom de piste pour la comparaison."""
-        # Enlever l'extension
-        name = name.rsplit('.', 1)[0]
-        
-        # Enlever les caractères spéciaux et convertir en minuscules
-        name = re.sub(r'[^\w\s]', '', name.lower())
-        
         # Enlever les numéros de piste au début (ex: "01 -" ou "1.")
         name = re.sub(r'^\d+[\s.-]+', '', name)
-        
+
+        # Enlever l'extension audio connue (mp3, flac, wav, etc.)
+        name = re.sub(r'\.(mp3|flac|wav|aac|ogg|m4a)$', '', name, flags=re.IGNORECASE)
+
+        # Enlever les caractères spéciaux et convertir en minuscules
+        name = re.sub(r'[^\w\s.]', '', name.lower())
+
         return name.strip()
 
     def find_matching_tracks(self, wanted_tracks: List[Dict], available_files: SlskDirectory, allowed_extensions: List[str]) -> Dict[str, SlskFile]:
