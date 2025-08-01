@@ -109,7 +109,12 @@ class MusicBrainzService:
         releases = releases_data['releases']
         # Nouvelle priorité : CD high > CD > high > autres
         def is_cd_release(release):
-            return any(medium.get('format', '').upper() == 'CD' for medium in release.get('media', []))
+            for medium in release.get('media', []):
+                fmt = medium.get('format')
+                if fmt and fmt.upper() == 'CD':
+                    return True
+            return False
+       
         high_quality_cd_releases = [r for r in releases if r.get('quality') == 'high' and is_cd_release(r)]
         cd_releases = [r for r in releases if is_cd_release(r)]
         high_quality_releases = [r for r in releases if r.get('quality') == 'high']
