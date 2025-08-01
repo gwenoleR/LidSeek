@@ -106,8 +106,24 @@ class MusicBrainzService:
         if not releases_data.get('releases'):
             return []
 
-        # Prendre le release avec le plus de pistes
-        release = max(releases_data['releases'], 
+        releases = releases_data['releases']
+        # Nouvelle priorité : CD high > CD > high > autres
+        def is_cd_release(release):
+            return any(medium.get('format', '').upper() == 'CD' for medium in release.get('media', []))
+        high_quality_cd_releases = [r for r in releases if r.get('quality') == 'high' and is_cd_release(r)]
+        cd_releases = [r for r in releases if is_cd_release(r)]
+        high_quality_releases = [r for r in releases if r.get('quality') == 'high']
+        if high_quality_cd_releases:
+            releases_to_consider = high_quality_cd_releases
+        elif cd_releases:
+            releases_to_consider = cd_releases
+        elif high_quality_releases:
+            releases_to_consider = high_quality_releases
+        else:
+            releases_to_consider = releases
+
+        # Prendre le release avec le plus de pistes parmi ceux sélectionnés
+        release = max(releases_to_consider, 
                      key=lambda x: sum(medium.get('track-count', 0) for medium in x.get('media', [])))
 
         album_info = {
