@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union
+import unicodedata
 import slskd_api
 import time
 import difflib
@@ -239,17 +240,23 @@ class SlskdDownloader(Downloader):
         self.logger.info(f"Nombre de téléchargements actifs: {len(downloads)}")
         
         # Nettoyer le nom recherché
-        clean_search = ''.join(c.lower() for c in directory_name if c.isalnum())
+        def normalize_str(s):
+            # Remplace les caractères accentués par leur équivalent non accentué et enlève les caractères non alphanumériques
+            s = unicodedata.normalize('NFKD', s)
+            s = ''.join(c for c in s if not unicodedata.combining(c))
+            return ''.join(c.lower() for c in s if c.isalnum())
+
+        clean_search = normalize_str(directory_name)
         self.logger.info(f"Nom nettoyé pour la recherche: '{clean_search}'")
         
         for download in downloads:
-            self.logger.info(f"Téléchargement de {download.get('username', 'unknown')}:")
+            self.logger.info(f"Téléchargement de {download.get('username', 'unknown')}:" )
             for directory in download.get('directories', []):
                 dir_path = directory.get('directory', '')
                 self.logger.info(f"  - Dossier trouvé: '{dir_path}'")
                 
                 # Nettoyer le nom du dossier cible pour la comparaison
-                clean_dir = ''.join(c.lower() for c in dir_path if c.isalnum())
+                clean_dir = normalize_str(dir_path)
                 self.logger.info(f"  - Nom nettoyé du dossier: '{clean_dir}'")
                 
                 # Vérifier si le nom recherché est dans le nom du dossier
