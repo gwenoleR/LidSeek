@@ -127,29 +127,74 @@ class MusicBrainzService:
         else:
             releases_to_consider = releases
 
-        # Prendre le release avec le plus de pistes parmi ceux sélectionnés
-        release = max(releases_to_consider, 
-                     key=lambda x: sum(medium.get('track-count', 0) for medium in x.get('media', [])))
+        # Filtrer uniquement les releases au format CD ou Digital Media, et sans édition spéciale
+        def is_standard_release(release):
+            # Formats acceptés
+            valid_formats = {"CD", "DIGITAL MEDIA"}
+            # Mots-clés à exclure dans le titre
+            exclude_keywords = [
+                "deluxe", "extended", "remaster", "bonus", "special", "anniversary", "edition", "expanded", "collector", "reissue", "superior", "definitive", "ultimate", "tour", "live"
+            ]
+            # Vérifier le format
+            has_valid_format = any(
+                (medium.get('format') or '').strip().upper() in valid_formats
+                for medium in release.get('media', [])
+            )
+            if not has_valid_format:
+                return False
+            # Vérifier les mots-clés dans le titre
+            title = release.get('title', '').lower()
+            if any(kw in title for kw in exclude_keywords):
+                return False
+            # Vérifier les secondary-types
+            for t in release.get('secondary-types', []):
+                if any(kw in t.lower() for kw in exclude_keywords):
+                    return False
+            return True
+
+        standard_releases = [r for r in releases if is_standard_release(r)]
+        if standard_releases:
+            # Trier par qualité : high > normal > low > None
+            def quality_sort_key(r):
+                q = r.get('quality')
+                if q == 'high':
+                    return 0
+                elif q == 'normal':
+                    return 1
+                elif q == 'low':
+                    return 2
+                return 3
+            standard_releases.sort(key=quality_sort_key)
+            releases_to_consider = standard_releases
+        else:
+            releases_to_consider = releases  # fallback si rien trouvé
+
+        # Prendre la première release de la liste triée
+        release = releases_to_consider[0]
 
         album_info = {
             'id': album_id,
             'title': release_group_data.get('title', ''),
             'cover_url': self._get_cover_url(release['id']),
             'artist_name': release_group_data.get('artist-credit', [{}])[0].get('name', 'Artiste Inconnu'),
-            'release_date': release_group_data.get('first-release-date'),  # Ajout de la date de sortie
+            'release_date': release_group_data.get('first-release-date'),
             'tracks': []
         }
 
         for medium in release.get('media', []):
+            disc_number = medium.get('position', 1)
+            if disc_number != 1:
+                continue  # On ne prend que le CD1
             for track in medium.get('tracks', []):
                 recording = track.get('recording', {})
-                # Générer un ID unique basé sur l'album et la position si aucun ID n'est disponible
-                track_id = (track.get('id') or 
-                          recording.get('id') or 
-                          f"{album_id}-{medium.get('position', '0')}-{track.get('number', '0')}")
-                
+                track_id = (
+                    track.get('id') or 
+                    recording.get('id') or 
+                    f"{album_id}-{disc_number}-{track.get('number', '0')}"
+                )
                 track_info = {
                     'id': track_id,
+                    'disc_number': disc_number,
                     'position': track.get('number', ''),
                     'title': track.get('title', ''),
                     'length': track.get('length', 0),
@@ -157,8 +202,14 @@ class MusicBrainzService:
                 }
                 album_info['tracks'].append(track_info)
 
-        # Trier les pistes par position
-        album_info['tracks'].sort(key=lambda x: x['position'])
+        # Trier les pistes par numéro de piste uniquement (CD1 seulement)
+        def track_sort_key(x):
+            try:
+                pos = int(x['position'])
+            except (ValueError, TypeError):
+                pos = 0
+            return pos
+        album_info['tracks'].sort(key=track_sort_key)
         
         self.redis_client.setex(cache_key, self.cache_expiration, json.dumps(album_info))
         return album_info
