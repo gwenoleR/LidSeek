@@ -113,7 +113,15 @@ class DownloadManager:
                 self.logger.debug(r)
             if not search_results:
                 self.logger.warning(f"Aucun résultat trouvé pour la recherche : {query}")
-                return False
+                # Essayer une recherche avec seulement le titre de l'album
+                query_title_only = album['title']
+                self.logger.info(f"Nouvelle tentative de recherche avec le titre seul : {query_title_only}")
+                search_results = self.downloader.search(query_title_only)
+                for r in search_results:
+                    self.logger.debug(r)
+                if not search_results:
+                    self.logger.warning(f"Aucun résultat trouvé pour la recherche : {query_title_only}")
+                    return False
 
             best_result = None
             best_match_count = 0
@@ -222,7 +230,8 @@ class DownloadManager:
                                 track_info['slsk_id']
                             )
                         elif 'Completed' in file['state'] and 'Error' in file['state']:
-                            self.status_tracker.update_track_status(track_id, DownloadStatus.ERROR)
+                            self.status_tracker.update_track_status(track_id, DownloadStatus.ERROR, None,
+                                track_info['slsk_id'])
                         break
                         
 
