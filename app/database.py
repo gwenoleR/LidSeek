@@ -57,6 +57,12 @@ class Database:
                     download_date TIMESTAMP,
                     local_path TEXT,
                     slsk_id TEXT,
+                    artist TEXT, 
+                    album TEXT, 
+                    track TEXT, 
+                    disc TEXT, 
+                    year TEXT, 
+                    albumartist TEXT,
                     FOREIGN KEY (album_id) REFERENCES albums (id)
                 )
             ''')
@@ -83,14 +89,19 @@ class Database:
             ''', (album_id, artist_id, title, release_date, cover_url, DownloadStatus.PENDING.value))
             conn.commit()
 
-    def add_track(self, track_id, album_id, title, position=None, length=None):
-        """Ajoute ou met à jour une piste."""
+    def add_track(self, track_id, album_id, title, position=None, length=None, artist=None, album=None, track=None, disc=None, year=None, albumartist=None):
+        """Ajoute ou met à jour une piste avec tags."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT OR REPLACE INTO tracks (id, album_id, title, position, length, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (track_id, album_id, title, position, length, DownloadStatus.PENDING.value))
+                INSERT OR REPLACE INTO tracks (
+                    id, album_id, title, position, length, status,
+                    artist, album, track, disc, year, albumartist
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                track_id, album_id, title, position, length, DownloadStatus.PENDING.value,
+                artist, album, track, disc, year, albumartist
+            ))
             conn.commit()
 
     def update_track_status(self, track_id, status, local_path=None, slsk_id=None):
@@ -255,5 +266,4 @@ class Database:
                 DELETE FROM albums
                 WHERE id = ?
             ''', (album_id,))
-            
             conn.commit()

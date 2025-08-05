@@ -62,7 +62,13 @@ class DownloadManager:
                     album_id,
                     track['title'],
                     track['position'],
-                    track.get('length')
+                    track.get('length'),
+                    artist=album_info.get('artist_name'),
+                    album=album_info.get('title'),
+                    track=str(track.get('position')) if track.get('position') else None,
+                    disc=track.get('disc'),
+                    year=album_info.get('release_date', '').split('-')[0] if album_info.get('release_date') else None,
+                    albumartist=album_info.get('artist_name')
                 )
 
     def get_album_status(self, album_id: str) -> tuple:

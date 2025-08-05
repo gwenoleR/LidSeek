@@ -3,6 +3,7 @@ from utils.logger import setup_logger
 from typing import Dict, List
 from .filesystem import FileSystemService
 from .download_status_tracker import DownloadStatusTracker
+from .tagger import TaggerService
 from database import DownloadStatus
 
 class AlbumProcessor:
@@ -42,9 +43,26 @@ class AlbumProcessor:
                 new_filename = f"{track_number} - {track_title}{ext}"
 
                 # Déplacer le fichier
-                if not self.filesystem.move_track_file(track_info['local_path'], destination_dir, new_filename):
+                moved_path = self.filesystem.move_track_file(track_info['local_path'], destination_dir, new_filename)
+                if not moved_path:
                     self.logger.error(f"Échec du déplacement de la piste {track_title}")
                     return
+                
+                # Not working ?
+                # # Tagger le fichier déplacé
+                # tags = {
+                #     'title': track_title,
+                #     'artist': album.get('artist_name'),
+                #     'album': album.get('title'),
+                #     'track': str(track_info.get('position', '')),
+                #     'year': year,
+                #     'albumartist': album.get('artist_name'),
+                # }
+                # try:
+                #     # TaggerService.clear_tags(os.path.join(destination_dir, new_filename))
+                #     # TaggerService.tag_file(os.path.join(destination_dir, new_filename), tags)
+                # except Exception as tag_exc:
+                #     self.logger.error(f"Erreur lors du tag de la piste {track_title}: {str(tag_exc)}")
 
             self.logger.info(f"Traitement terminé pour l'album {album['title']}")
 

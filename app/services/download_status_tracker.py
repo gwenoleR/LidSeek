@@ -56,8 +56,9 @@ class DownloadStatusTracker:
         self.db.add_album(album_id, artist_id, title, release_date, cover_url)
         self.logger.info(f"Album ajouté : {title} (ID: {album_id})")
         
-    def add_track(self, track_id: str, album_id: str, title: str, 
-                 position: str, length: Optional[str] = None) -> None:
-        """Ajoute une piste à la base de données."""
-        self.db.add_track(track_id, album_id, title, position, length)
+    def add_track(self, track_id: str, album_id: str, title: str, position: str, length: Optional[str] = None,
+                 artist: Optional[str] = None, album: Optional[str] = None, track: Optional[str] = None,
+                 disc: Optional[str] = None, year: Optional[str] = None, albumartist: Optional[str] = None) -> None:
+        """Ajoute une piste à la base de données avec tous les tags utiles."""
+        self.db.add_track(track_id, album_id, title, position, length, artist, album, track, disc, year, albumartist)
         self.logger.info(f"Piste ajoutée : {title} (ID: {track_id})")
