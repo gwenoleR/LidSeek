@@ -7,10 +7,22 @@ def init_routes(library_service):
     def library():
         try:
             albums = library_service.get_all_albums()
-            
+            # Regrouper les albums par artiste
+            artists_dict = {}
+            for album in albums:
+                artist_id = album['artist_id']
+                artist_name = album['artist_name']
+                if artist_id not in artists_dict:
+                    artists_dict[artist_id] = {
+                        'id': artist_id,
+                        'name': artist_name,
+                        'albums': []
+                    }
+                artists_dict[artist_id]['albums'].append(album)
+            artists = list(artists_dict.values())
             if 'text/html' in request.headers.get('Accept', ''):
-                return render_template('library.html', albums=albums)
-            return jsonify(albums)
+                return render_template('library.html', artists=artists)
+            return jsonify(artists)
         except Exception as e:
             if 'text/html' in request.headers.get('Accept', ''):
                 return render_template('library.html', error=str(e))

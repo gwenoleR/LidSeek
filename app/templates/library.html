@@ -119,45 +119,45 @@
         {% if error %}
             <p style="color:red;">{{ error }}</p>
         {% else %}
-            <div class="albums-grid">
-            {% for album in albums %}
-                <a href="/album/{{ album.id }}?artist_id={{ album.artist_id }}" class="album-card">
-                    <div class="album-cover">
-                        {% if album.cover_url %}
-                            <img src="{{ album.cover_url }}" alt="Couverture de {{ album.title }}" />
-                        {% else %}
-                            📀
-                        {% endif %}
-                    </div>
-                    <div class="album-info">
-                        <h3 class="album-title">{{ album.title }}</h3>
-                        <p class="album-artist">{{ album.artist_name }}</p>
-                        
-                        <div class="download-status status-{{ album.status }}">
-                            {% if album.status == 'pending' %}
-                                En attente
-                            {% elif album.status == 'downloading' %}
-                                Téléchargement ({{ album.completed_tracks }}/{{ album.total_tracks }})
-                            {% elif album.status == 'completed' %}
-                                Terminé
+            {% for artist in artists %}
+                <h2>{{ artist.name }}</h2>
+                <div class="albums-grid">
+                {% for album in artist.albums %}
+                    <a href="/album/{{ album.id }}?artist_id={{ album.artist_id }}" class="album-card">
+                        <div class="album-cover">
+                            {% if album.cover_url %}
+                                <img src="{{ album.cover_url }}" alt="Couverture de {{ album.title }}" />
                             {% else %}
-                                Erreur
+                                📀
                             {% endif %}
                         </div>
-                        
-                        {% if album.release_date %}
-                            <div class="release-date">
-                                Sorti le {{ album.release_date }}
+                        <div class="album-info">
+                            <h3 class="album-title">{{ album.title }}</h3>
+                            <p class="album-artist">{{ album.artist_name }}</p>
+                            <div class="download-status status-{{ album.status }}">
+                                {% if album.status == 'pending' %}
+                                    En attente
+                                {% elif album.status == 'downloading' %}
+                                    Téléchargement ({{ album.completed_tracks }}/{{ album.total_tracks }})
+                                {% elif album.status == 'completed' %}
+                                    Terminé
+                                {% else %}
+                                    Erreur
+                                {% endif %}
                             </div>
-                        {% endif %}
-                        
-                        <div class="added-date">
-                            Ajouté le {{ album.added_date.strftime('%d/%m/%Y') }}
+                            {% if album.release_date %}
+                                <div class="release-date">
+                                    Sorti le {{ album.release_date }}
+                                </div>
+                            {% endif %}
+                            <div class="added-date">
+                                Ajouté le {{ album.added_date.strftime('%d/%m/%Y') }}
+                            </div>
                         </div>
-                    </div>
-                </a>
+                    </a>
+                {% endfor %}
+                </div>
             {% endfor %}
-            </div>
         {% endif %}
     </div>
 </body>
