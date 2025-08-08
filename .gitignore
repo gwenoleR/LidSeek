@@ -1,11 +1,32 @@
-/slskd_config
-/music_downloads
-/formatted_songs
+# Environnements virtuels
+/.venv
 /venv
-/app/logs
 
-/slskd_config
-**/__pycache__
+.env*
+slskd_config/
+
+# Dossiers de téléchargements et de fichiers générés
+/music_downloads/
+/formatted_songs/
+/app/logs/
+/data/
+
+# Fichiers temporaires et caches Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Bases de données et logs
 **/*.db
+**/*.sqlite3
+**/*.log
 
+# Fichiers de configuration d'exemple à ne PAS ignorer
+!slskd_config/slskd.example.yml
+!.env.example
+
+# Fichiers divers à ignorer
 todo.md
+
+.vscode/
+.idea/

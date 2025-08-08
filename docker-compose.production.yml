@@ -1,24 +1,27 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.production
     ports:
       - "8081:8081"
     environment:
       - REDIS_HOST=redis
       - SLSKD_HOST=http://slskd:5030
-      - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
     volumes:
-      - ./app:/app
       - ./music_downloads:/downloads
       - ./formatted_songs:/formatted_songs
     depends_on:
       - redis
       - slskd
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
 
   slskd:
     image: slskd/slskd:latest
@@ -26,9 +29,10 @@ services:
       - "5030:5030"
     volumes:
       - ./music_downloads:/app/downloads
-      - ./slskd_config/slskd.yml:/app/slskd.yml
+      - ./slskd_config/slskd.yml:/app/slskd.yml:ro
     environment:
       - SLSKD_REMOTE_CONFIGURATION=true
       - SLSKD_SHARED_DIR=/downloads
-      - SLSKD_API_KEY=6ipTQdEnr0jeM+x3rs2zQJdKILalrVwmF0cOyRAMboc=
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
       - SLSKD_REMOTE_ACCESS=true
+    restart: unless-stopped

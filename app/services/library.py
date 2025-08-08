@@ -1,4 +1,4 @@
-from database import Database, DownloadStatus
+from app.database import Database, DownloadStatus
 import sqlite3
 from datetime import datetime
 

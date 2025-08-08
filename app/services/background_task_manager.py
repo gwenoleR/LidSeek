@@ -1,7 +1,7 @@
 import threading
 import time
-from .download_manager import DownloadManager
-from utils.logger import setup_logger
+from app.services.download_manager import DownloadManager
+from app.utils.logger import setup_logger
 
 class BackgroundTaskManager:
     def __init__(self):

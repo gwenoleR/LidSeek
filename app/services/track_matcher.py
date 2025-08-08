@@ -1,8 +1,8 @@
 import difflib
 import re
 from typing import List, Dict
-from utils.logger import setup_logger
-from .slsk_models import SlskDirectory, SlskFile
+from app.utils.logger import setup_logger
+from app.services.slsk_models import SlskDirectory, SlskFile
 
 class TrackMatcher:
     """Classe responsable de la correspondance entre les pistes recherchées et trouvées."""

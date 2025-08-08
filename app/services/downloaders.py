@@ -4,7 +4,7 @@ import unicodedata
 import slskd_api
 import time
 import difflib
-from utils.logger import setup_logger
+from app.utils.logger import setup_logger
 from enum import Enum
 import os
 from typing import List, Dict, Optional

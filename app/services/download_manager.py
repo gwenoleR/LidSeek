@@ -1,14 +1,14 @@
-from database import Database, DownloadStatus
-from utils.logger import setup_logger
+from app.database import Database, DownloadStatus
+from app.utils.logger import setup_logger
 from typing import Dict, List
 import os
-from config.settings import Config
-from .downloaders import Downloader, SlskdDownloader
-from .filesystem import FileSystemService
-from .track_matcher import TrackMatcher
-from .download_status_tracker import DownloadStatusTracker
-from .album_processor import AlbumProcessor
-from .slsk_models import SlskFile
+from app.config.settings import Config
+from app.services.downloaders import Downloader, SlskdDownloader
+from app.services.filesystem import FileSystemService
+from app.services.track_matcher import TrackMatcher
+from app.services.download_status_tracker import DownloadStatusTracker
+from app.services.album_processor import AlbumProcessor
+from app.services.slsk_models import SlskFile
 
 class DownloadManager:
     def __init__(self, database: Database):

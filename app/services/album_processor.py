@@ -1,10 +1,10 @@
 import os
-from utils.logger import setup_logger
+from app.utils.logger import setup_logger
 from typing import Dict, List
-from .filesystem import FileSystemService
-from .download_status_tracker import DownloadStatusTracker
-from .tagger import TaggerService
-from database import DownloadStatus
+from app.database import DownloadStatus
+from app.services.filesystem import FileSystemService
+from app.services.download_status_tracker import DownloadStatusTracker
+from app.services.tagger import TaggerService
 
 class AlbumProcessor:
     def __init__(self, filesystem: FileSystemService, status_tracker: DownloadStatusTracker):

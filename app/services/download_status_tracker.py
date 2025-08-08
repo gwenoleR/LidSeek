@@ -1,5 +1,5 @@
-from database import Database, DownloadStatus
-from utils.logger import setup_logger
+from app.database import Database, DownloadStatus
+from app.utils.logger import setup_logger
 from typing import Dict, List, Optional
 
 class DownloadStatusTracker:
