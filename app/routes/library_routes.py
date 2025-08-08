@@ -7,7 +7,7 @@ def init_routes(library_service):
     def library():
         try:
             albums = library_service.get_all_albums()
-            # Regrouper les albums par artiste
+            # Group albums by artist
             artists_dict = {}
             for album in albums:
                 artist_id = album['artist_id']

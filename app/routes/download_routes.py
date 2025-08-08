@@ -9,10 +9,10 @@ def init_routes(musicbrainz_service, download_manager):
             album_info = musicbrainz_service.get_album_tracks(album_id)
             artist_id = request.form.get('artist_id')
             
-            # Ajouter l'album à la file de téléchargement
+            # Add album to download queue
             download_manager.queue_album(album_id, artist_id, album_info)
             
-            # Lancer immédiatement le processus de téléchargement
+            # Immediately start the download process
             download_manager.process_pending_downloads()
             
             return jsonify({'status': 'success', 'message': 'Album ajouté à la file de téléchargement'})
@@ -34,10 +34,9 @@ def init_routes(musicbrainz_service, download_manager):
             album_info = musicbrainz_service.get_album_tracks(album_id)
             artist_id = request.form.get('artist_id')
 
-            # Réinitialiser le statut de l'album si besoin (optionnel)
-            # download_manager.reset_album_status(album_id)
+            
 
-            # Réajouter l'album à la file de téléchargement
+            # Re-add album to download queue
             download_manager.queue_album(album_id, artist_id, album_info)
             download_manager.process_pending_downloads()
             return jsonify({'status': 'success', 'message': 'Nouvelle tentative de téléchargement lancée'})

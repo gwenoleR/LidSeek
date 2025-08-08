@@ -95,9 +95,9 @@ class SlskdDownloader(Downloader):
                 api_key=api_key,
                 url_base=url_base
             )
-            self.logger.info(f"Slskd configuré avec succès sur {host_url}")
+            self.logger.info(f"Slskd successfully configured on {host_url}")
         except Exception as e:
-            self.logger.error(f"Erreur lors de la configuration de Slskd: {str(e)}")
+            self.logger.error(f"Error configuring Slskd: {str(e)}")
             raise
             
     def search(self, query: str) -> List[SlskSearchResult]:
@@ -122,14 +122,14 @@ class SlskdDownloader(Downloader):
             responseLimit=10
         )
         
-        # Attendre la fin de la recherche
+        # Wait for the search to finish
         while True:
             search_state = self.client.searches.state(search['id'])
             if search_state['state'] != 'InProgress':
                 break
             time.sleep(1)
             
-        # Convertir les résultats en objets SlskSearchResult
+        # Convert results to SlskSearchResult objects
         raw_results = self.client.searches.search_responses(search['id'])
         return [SlskSearchResult.from_response(result) for result in raw_results]
         
@@ -139,10 +139,10 @@ class SlskdDownloader(Downloader):
         Returns:
             Une liste de fichiers convertis en objets SlskFile
         """
-        self.logger.debug(f"Recherche dans le dossier \"{directory}\" pour le user: {username}")
+        self.logger.debug(f"Searching in folder \"{directory}\" for user: {username}")
         response = self.client.users.directory(username=username, directory=directory)
         if not isinstance(response, list):
-            self.logger.warning(f"Réponse inattendue de directory(): {type(response)}")
+            self.logger.warning(f"Unexpected response from directory(): {type(response)}")
             return []
         if(len(response) == 0):
             return []
@@ -155,13 +155,13 @@ class SlskdDownloader(Downloader):
             username: Nom de l'utilisateur source
             files: Liste des fichiers à télécharger (objets SlskFile)
         """
-        self.logger.info(f"Démarrage du téléchargement de {len(files)} fichiers de {username}")
+        self.logger.info(f"Starting download of {len(files)} files from {username}")
         try:
-            # Convertir les SlskFile en dictionnaires pour l'API
+            # Convert SlskFile to dictionaries for the API
             files_data = [{'filename': f"{os.path.normpath(directory)}\\{f.filename}", 'size': f.size} for f in files]
             return self.client.transfers.enqueue(username=username, files=files_data)
         except Exception as e:
-            self.logger.error(f"Erreur lors du téléchargement: {str(e)}")
+            self.logger.error(f"Error during download: {str(e)}")
             return False
             
     def get_downloads_status(self) -> List[Dict]:
@@ -182,7 +182,7 @@ class SlskdDownloader(Downloader):
         try:
             return self.client.transfers.cancel_download(username=username, id=id)
         except Exception as e:
-            self.logger.error(f"Erreur lors de l'annulation: {str(e)}")
+            self.logger.error(f"Error during cancellation: {str(e)}")
             return False
     
     def remove_download(self, username: str, id: str) -> bool:
@@ -195,7 +195,7 @@ class SlskdDownloader(Downloader):
         try:
             return self.client.transfers.cancel_download(username=username, id=id, remove=True)
         except Exception as e:
-            self.logger.error(f"Erreur lors de la suppression: {str(e)}")
+            self.logger.error(f"Error during removal: {str(e)}")
             return False
             
     def clear_completed_downloads(self) -> bool:
@@ -207,7 +207,7 @@ class SlskdDownloader(Downloader):
         try:
             return self.client.transfers.remove_completed_downloads()
         except Exception as e:
-            self.logger.error(f"Erreur lors du nettoyage des téléchargements terminés: {str(e)}")
+            self.logger.error(f"Error cleaning up completed downloads: {str(e)}")
             return False
             
     def _get_download_by_directory(self, directory_name: str) -> Dict:
@@ -236,33 +236,33 @@ class SlskdDownloader(Downloader):
             Liste des fichiers avec leur statut, vide si non trouvé
         """
         downloads = self.get_downloads_status()
-        self.logger.info(f"Recherche du dossier contenant '{directory_name}' dans les téléchargements")
-        self.logger.info(f"Nombre de téléchargements actifs: {len(downloads)}")
+        self.logger.info(f"Searching for folder containing '{directory_name}' in downloads")
+        self.logger.info(f"Number of active downloads: {len(downloads)}")
         
-        # Nettoyer le nom recherché
+        # Clean the searched name
         def normalize_str(s):
-            # Remplace les caractères accentués par leur équivalent non accentué et enlève les caractères non alphanumériques
+            # Replace accented characters with their unaccented equivalent and remove non-alphanumeric characters
             s = unicodedata.normalize('NFKD', s)
             s = ''.join(c for c in s if not unicodedata.combining(c))
             return ''.join(c.lower() for c in s if c.isalnum())
 
         clean_search = normalize_str(directory_name)
-        self.logger.info(f"Nom nettoyé pour la recherche: '{clean_search}'")
+        self.logger.info(f"Cleaned name for search: '{clean_search}'")
         
         for download in downloads:
-            self.logger.info(f"Téléchargement de {download.get('username', 'unknown')}:" )
+            self.logger.info(f"Download from {download.get('username', 'unknown')}:" )
             for directory in download.get('directories', []):
                 dir_path = directory.get('directory', '')
-                self.logger.info(f"  - Dossier trouvé: '{dir_path}'")
+                self.logger.info(f"  - Folder found: '{dir_path}'")
                 
-                # Nettoyer le nom du dossier cible pour la comparaison
+                # Clean the target folder name for comparison
                 clean_dir = normalize_str(dir_path)
-                self.logger.info(f"  - Nom nettoyé du dossier: '{clean_dir}'")
+                self.logger.info(f"  - Cleaned folder name: '{clean_dir}'")
                 
-                # Vérifier si le nom recherché est dans le nom du dossier
+                # Check if the searched name is in the folder name
                 if clean_search in clean_dir:
-                    self.logger.info(f"  => Correspondance trouvée! '{dir_path}' contient '{directory_name}'")
+                    self.logger.info(f"  => Match found! '{dir_path}' contains '{directory_name}'")
                     return directory.get('files', [])
                         
-        self.logger.warning(f"Aucun dossier trouvé contenant '{directory_name}'")
+        self.logger.warning(f"No folder found containing '{directory_name}'")
         return []

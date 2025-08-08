@@ -5,16 +5,16 @@ from logging.handlers import RotatingFileHandler
 def setup_logger(name, log_file, level=logging.INFO):
     """Configure un logger avec rotation des fichiers"""
     
-    # Créer le dossier logs s'il n'existe pas
+    # Create the logs folder if it doesn't exist
     os.makedirs('logs', exist_ok=True)
     
-    # Créer le formateur
+    # Create the formatter
     formatter = logging.Formatter(
         '%(asctime)s | %(name)s | %(levelname)s | %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Configurer le handler pour fichier avec rotation
+    # Configure the file handler with rotation
     file_handler = RotatingFileHandler(
         os.path.join('logs', log_file),
         maxBytes=10*1024*1024,  # 10MB
@@ -22,15 +22,15 @@ def setup_logger(name, log_file, level=logging.INFO):
     )
     file_handler.setFormatter(formatter)
     
-    # Configurer le handler pour console
+    # Configure the console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     
-    # Configurer le logger
+    # Configure the logger
     logger = logging.getLogger(name)
     logger.setLevel(level)
     
-    # Éviter la duplication des logs
+    # Avoid log duplication
     if not logger.handlers:
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)

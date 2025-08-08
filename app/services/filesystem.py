@@ -39,11 +39,11 @@ class FileSystemService:
             
             if os.path.exists(src_path):
                 shutil.move(src_path, dst_path)
-                self.logger.info(f"Fichier déplacé: {src_path} -> {dst_path}")
+                self.logger.info(f"File moved: {src_path} -> {dst_path}")
                 return True
             else:
-                self.logger.warning(f"Fichier source non trouvé: {src_path}")
+                self.logger.warning(f"Source file not found: {src_path}")
                 return False
         except Exception as e:
-            self.logger.error(f"Erreur lors du déplacement du fichier: {str(e)}")
+            self.logger.error(f"Error moving file: {str(e)}")
             return False

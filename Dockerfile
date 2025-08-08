@@ -7,7 +7,7 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Créer le dossier de téléchargement
+# Create the download folder
 RUN mkdir -p /downloads
 
 EXPOSE 8081

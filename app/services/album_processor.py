@@ -14,16 +14,16 @@ class AlbumProcessor:
 
     def process_completed_album(self, album: dict) -> None:
         """Traite un album téléchargé en organisant ses fichiers."""
-        self.logger.info(f"Traitement post-téléchargement pour {album['title']}")
+        self.logger.info(f"Post-download processing for {album['title']}")
         
         try:
-            # Récupérer le statut et les pistes
+            # Get status and tracks
             tracks = self.status_tracker.get_tracks_status(album['id'])
             if not tracks:
-                self.logger.error(f"Aucune piste trouvée pour l'album {album['id']}")
+                self.logger.error(f"No track found for album {album['id']}")
                 return
 
-            # Créer le dossier de destination
+            # Create the destination folder
             year = album.get('release_date', '').split('-')[0] if album.get('release_date') else ''
             destination_dir = self.filesystem.create_album_directory(
                 album['artist_name'], 
@@ -31,25 +31,25 @@ class AlbumProcessor:
                 year
             )
 
-            # Déplacer et renommer chaque fichier
+            # Move and rename each file
             for track_id, track_info in tracks.items():
                 if track_info['status'] != DownloadStatus.COMPLETED.value or not track_info['local_path']:
                     continue
 
-                # Construire le nouveau nom de fichier
+                # Build the new filename
                 track_number = str(track_info.get('position', '')).zfill(2)
                 track_title = track_info['title']
                 ext = os.path.splitext(track_info['local_path'])[1]
                 new_filename = f"{track_number} - {track_title}{ext}"
 
-                # Déplacer le fichier
+                # Move the file
                 moved_path = self.filesystem.move_track_file(track_info['local_path'], destination_dir, new_filename)
                 if not moved_path:
-                    self.logger.error(f"Échec du déplacement de la piste {track_title}")
+                    self.logger.error(f"Failed to move track {track_title}")
                     return
                 
-                # Not working ?
-                # # Tagger le fichier déplacé
+                # Not working?
+                # # Tag the moved file
                 # tags = {
                 #     'title': track_title,
                 #     'artist': album.get('artist_name'),
@@ -62,10 +62,10 @@ class AlbumProcessor:
                 #     # TaggerService.clear_tags(os.path.join(destination_dir, new_filename))
                 #     # TaggerService.tag_file(os.path.join(destination_dir, new_filename), tags)
                 # except Exception as tag_exc:
-                #     self.logger.error(f"Erreur lors du tag de la piste {track_title}: {str(tag_exc)}")
+                #     self.logger.error(f"Error while tagging track {track_title}: {str(tag_exc)}")
 
-            self.logger.info(f"Traitement terminé pour l'album {album['title']}")
+            self.logger.info(f"Processing finished for album {album['title']}")
 
         except Exception as e:
-            self.logger.error(f"Erreur lors du traitement de l'album: {str(e)}")
-            self.logger.exception("Stack trace complète:")
+            self.logger.error(f"Error processing album: {str(e)}")
+            self.logger.exception("Full stack trace:")

@@ -15,7 +15,7 @@ class DownloadManager:
         self.downloader: SlskdDownloader = None
         self.logger = setup_logger('download_manager', 'downloads.log')
         
-        # Initialiser les services
+        # Initialize services
         self.filesystem = FileSystemService("/downloads", Config.FORMATTED_SONGS_DIR)
         self.status_tracker = DownloadStatusTracker(database)
         self.track_matcher = TrackMatcher()
@@ -33,7 +33,7 @@ class DownloadManager:
 
     def queue_album(self, album_id: str, artist_id: str, album_info: dict) -> None:
         """Ajoute un album à la file de téléchargement."""
-        # Ajouter l'artiste à la base de données
+        # Add artist to the database
         artist_name = album_info.get('artist_name')
         if not artist_name and album_info.get('tracks'):
             if album_info['tracks'][0].get('artists'):
@@ -43,7 +43,7 @@ class DownloadManager:
             
         self.status_tracker.add_artist(artist_id, artist_name)
             
-        # Ajouter l'album
+        # Add album
         self.status_tracker.add_album(
             album_id,
             artist_id,
@@ -54,7 +54,7 @@ class DownloadManager:
 
         self.status_tracker.update_album_status(album_id, DownloadStatus.PENDING)
 
-        # Ajouter les pistes
+        # Add tracks
         for track in album_info['tracks']:
             if track.get('id'):
                 self.status_tracker.add_track(
@@ -84,9 +84,9 @@ class DownloadManager:
         if not self.downloader:
             raise ValueError("Aucun téléchargeur n'est configuré")
 
-        # Traiter les albums en attente
+        # Process pending albums
         pending_albums = self.status_tracker.get_pending_albums()
-        self.logger.info(f"Traitement de {len(pending_albums)} albums en attente")
+        self.logger.info(f"Processing {len(pending_albums)} pending albums")
         
         for album in pending_albums:
             success = self._start_album_download(album)
@@ -95,7 +95,7 @@ class DownloadManager:
             else:
                 self.status_tracker.update_album_status(album['id'], DownloadStatus.ERROR)
 
-        # Vérifier les téléchargements en cours
+        # Check ongoing downloads
         downloading_albums = self.status_tracker.get_downloading_albums()
         for album in downloading_albums:
             self._check_download_status(album)
@@ -103,7 +103,7 @@ class DownloadManager:
     def _start_album_download(self, album: dict) -> bool:
         """Démarre le téléchargement d'un album."""
         try:
-            # Vérifier si l'album n'est pas déjà en cours
+            # Check if the album is not already in progress
             downloads = self.downloader.get_downloads_status()
             for download in downloads:
                 if not isinstance(download, dict):
@@ -112,21 +112,21 @@ class DownloadManager:
                     if directory.get('directory') == album['title']:
                         return True
 
-            # Rechercher l'album
+            # Search for the album
             query = f"{album['artist_name']} {album['title']}"
             search_results = self.downloader.search(query)
             for r in search_results:
                 self.logger.debug(r)
             if not search_results:
-                self.logger.warning(f"Aucun résultat trouvé pour la recherche : {query}")
-                # Essayer une recherche avec seulement le titre de l'album
+                self.logger.warning(f"No result found for search: {query}")
+                # Try searching with only the album title
                 query_title_only = album['title']
-                self.logger.info(f"Nouvelle tentative de recherche avec le titre seul : {query_title_only}")
+                self.logger.info(f"Retrying search with title only: {query_title_only}")
                 search_results = self.downloader.search(query_title_only)
                 for r in search_results:
                     self.logger.debug(r)
                 if not search_results:
-                    self.logger.warning(f"Aucun résultat trouvé pour la recherche : {query_title_only}")
+                    self.logger.warning(f"No result found for search: {query_title_only}")
                     return False
 
             best_result = None
@@ -134,40 +134,40 @@ class DownloadManager:
             best_directory_path = ""
             best_files: List[SlskFile] = []
 
-            # Analyser les résultats
+            # Analyze results
             for result in search_results:
                 if result.username in self.downloader.ignored_users:
                     continue
 
-                # Filtrer par type de fichier et taille minimale (pour éviter les snippets)
+                # Filter by file type and minimum size (to avoid snippets)
                 valid_files = result.filter_by_extension(self.downloader.allowed_filetypes)
-                valid_files = result.filter_by_size(min_size_mb=1.0)  # Ignorer les fichiers trop petits
+                valid_files = result.filter_by_size(min_size_mb=1.0)
 
                 if not valid_files:
                     continue
 
                 try:
-                    # Pour le premier fichier valide, récupérer son dossier parent
+                    # For the first valid file, get its parent folder
                     directory_path = valid_files[0].get_dir_name()
-                    self.logger.info(f"Récupération du contenu du dossier: {directory_path}")
+                    self.logger.info(f"Getting folder content: {directory_path}")
                     
-                    # Récupérer tous les fichiers du dossier
+                    # Get all files in the folder
                     directory_files = self.downloader.get_directory_content(result.username, directory_path)
                     if not directory_files:
                         continue
                     
-                    # Trouver les pistes correspondantes
+                    # Find matching tracks
                     matching_files = self.track_matcher.find_matching_tracks(
                         album['tracks'],
                         directory_files,
                         self.downloader.allowed_filetypes
                     )
 
-                    # Log des fichiers trouvés pour le débogage
+                    # Log found files for debugging
                     if matching_files:
-                        self.logger.info(f"Fichiers correspondants trouvés ({len(matching_files)}):")
+                        self.logger.debug(f"Matching files found ({len(matching_files)}):")
                         for track_id, file in matching_files.items():
-                            self.logger.info(f"  - Track ID: {track_id} -> {file.filename}")
+                            self.logger.debug(f"  - Track ID: {track_id} -> {file.filename}")
 
                     if matching_files and len(matching_files) > best_match_count:
                         best_directory_path = directory_path
@@ -178,39 +178,39 @@ class DownloadManager:
                             self.status_tracker.update_track_status(track_id,DownloadStatus.PENDING,None,file.filename)
 
                 except Exception as e:
-                    self.logger.warning(f"Erreur lors du traitement des fichiers de {result.username}: {str(e)}")
+                    self.logger.warning(f"Error processing files from {result.username}: {str(e)}")
                     continue
 
-            # Démarrer le téléchargement du meilleur résultat
+            # Start downloading the best result
             self.logger.debug(matching_files)
             if best_result and best_match_count > 0:
-                self.logger.info(f"Démarrage du téléchargement avec {best_result.username} ({best_match_count} fichiers)")
+                self.logger.info(f"Starting download with {best_result.username} ({best_match_count} files)")
                 return self.downloader.start_download(best_result.username, best_directory_path, best_files)
 
-            self.logger.warning(f"Aucune correspondance trouvée pour l'album : {album['title']}")
+            self.logger.warning(f"No match found for album: {album['title']}")
             return False
 
         except Exception as e:
-            self.logger.error(f"Erreur lors du démarrage du téléchargement: {str(e)}")
-            self.logger.exception("Stack trace complète:")
+            self.logger.error(f"Error starting download: {str(e)}")
+            self.logger.exception("Full stack trace:")
             return False
 
     def _check_download_status(self, album: dict) -> None:
         """Vérifie l'état d'un téléchargement en cours."""
         try:
-            # Récupérer les fichiers du dossier
+            # Get files from the folder
             album_folder = self.filesystem.extract_filename(album['title'])
             files = self.downloader.get_directory_files_status(album_folder)
             if not files:
                 return
 
-            # Récupérer les pistes et leur statut
+            # Get tracks and their status
             tracks = self.status_tracker.get_tracks_status(album['id'])
             completed_tracks = 0
             total_tracks = len(tracks)
 
             for track_id, track_info in tracks.items():
-                self.logger.debug(f"Recherche de correspondance pour la piste {track_id} : {track_info['title']} dans la liste des téléchargements.")
+                self.logger.debug(f"Matching for track {track_id}: {track_info['title']} in downloads list.")
                 for file in files:
                     file_name = self.filesystem.extract_filename(file['filename'])
                     normalized_path = self.filesystem.normalize_path(file['filename'])
@@ -244,10 +244,10 @@ class DownloadManager:
            
             self.logger.debug(f"Total files: {len(files)}")
 
-            # Mettre à jour le statut de l'album
+            # Update album status
             self.status_tracker.update_album_progress(album, completed_tracks, total_tracks)
 
-            # Traiter l'album s'il est terminé
+            # Process the album if it is complete
             if completed_tracks == total_tracks:
                 self.album_processor.process_completed_album(album)
                 for downloadedFile in files:
@@ -255,7 +255,7 @@ class DownloadManager:
                     # self.downloader.clear_completed_downloads()
 
         except Exception as e:
-            self.logger.error(f"Erreur lors de la vérification du statut: {str(e)}")
+            self.logger.error(f"Error checking status: {str(e)}")
 
     def cancel_album(self, album_id: str) -> None:
         """Annule le téléchargement d'un album."""

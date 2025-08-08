@@ -32,7 +32,7 @@ class SlskFile:
     code: int = 1
     bit_rate: Optional[int] = None
     is_variable_bit_rate: bool = False
-    length: Optional[int] = None  # Durée en secondes
+    length: Optional[int] = None  # Duration in seconds
     
     @property
     def size_mb(self) -> float:
@@ -178,7 +178,7 @@ class SlskSearchResult:
         if not self.files:
             return []
             
-        # Groupe les fichiers par nom (sans extension)
+        # Group files by name (without extension)
         grouped = {}
         for file in self.files:
             base_name = '.'.join(file.filename.split('.')[:-1])
@@ -186,7 +186,7 @@ class SlskSearchResult:
                 grouped[base_name] = []
             grouped[base_name].append(file)
         
-        # Pour chaque groupe, sélectionne le fichier avec la plus grande taille
+        # For each group, select the file with the largest size
         best_files = []
         for files in grouped.values():
             best_file = max(files, key=lambda x: x.size)

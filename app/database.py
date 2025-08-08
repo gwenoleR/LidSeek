@@ -12,7 +12,7 @@ class DownloadStatus(Enum):
 class Database:
     def __init__(self, db_path="data/downloads.db"):
         self.db_path = db_path
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Création du dossier si nécessaire
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Create folder if needed
         self.init_db()
 
     def init_db(self):
@@ -20,7 +20,7 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Table des artistes
+            # Artists table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS artists (
                     id TEXT PRIMARY KEY,
@@ -29,7 +29,7 @@ class Database:
                 )
             ''')
 
-            # Table des albums
+            # Albums table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS albums (
                     id TEXT PRIMARY KEY,
@@ -44,7 +44,7 @@ class Database:
                 )
             ''')
 
-            # Table des pistes
+            # Tracks table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS tracks (
                     id TEXT PRIMARY KEY,
@@ -255,13 +255,13 @@ class Database:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # Supprimer les pistes de l'album
+            # Delete album tracks
             cursor.execute('''
                 DELETE FROM tracks
                 WHERE album_id = ?
             ''', (album_id,))
             
-            # Supprimer l'album
+            # Delete album
             cursor.execute('''
                 DELETE FROM albums
                 WHERE id = ?

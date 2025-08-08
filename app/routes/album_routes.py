@@ -19,7 +19,7 @@ def init_routes(musicbrainz_service, download_manager):
                 secondary_types=secondary_types
             )
 
-            # Récupérer le statut de téléchargement pour chaque album
+            # Get download status for each album
             for album in album_list:
                 status = download_manager.get_album_status(album['id'])
                 if status:
@@ -53,7 +53,7 @@ def init_routes(musicbrainz_service, download_manager):
             album_info = musicbrainz_service.get_album_tracks(album_id)
             artist_id = request.args.get('artist_id')
             
-            # Récupérer le statut de l'album
+            # Get album status
             status = download_manager.get_album_status(album_id)
             if status:
                 album_info['download_status'] = status[2]
@@ -62,7 +62,7 @@ def init_routes(musicbrainz_service, download_manager):
             else:
                 album_info['download_status'] = None
 
-            # Récupérer le statut de chaque piste
+            # Get status for each track
             tracks_status = download_manager.get_tracks_status(album_id)
             for track in album_info['tracks']:
                 if track['id'] in tracks_status:
@@ -93,17 +93,17 @@ def init_routes(musicbrainz_service, download_manager):
     @album_routes.route('/refresh/albums', methods=['GET'])
     def refresh_albums():
         artist_name = request.args.get('artist')
-        artist_id = request.args.get('artist_id')  # Ajout du paramètre artist_id
+        artist_id = request.args.get('artist_id')
         
         if not artist_name and not artist_id:
             return jsonify({'error': 'Paramètre "artist" ou "artist_id" requis'}), 400
 
         try:
-            # Si on a l'ID de l'artiste, on l'utilise directement
+            # If we have the artist ID, use it directly
             if artist_id:
                 mbid = artist_id
             else:
-                # Sinon on cherche par le nom (cas de fallback)
+                # Otherwise, search by name (fallback case)
                 mbid = musicbrainz_service.get_artist_mbid(artist_name, force_refresh=True)
             
             album_list = musicbrainz_service.get_albums_for_artist(mbid, force_refresh=True)
@@ -124,9 +124,9 @@ def init_routes(musicbrainz_service, download_manager):
     @album_routes.route('/album/<album_id>/status', methods=['GET'])
     def album_status(album_id):
         try:
-            # Récupérer le statut global de l'album
+            # Get global album status
             status = download_manager.get_album_status(album_id)
-            # Récupérer le statut détaillé des pistes
+            # Get detailed track status
             tracks_status = download_manager.get_tracks_status(album_id)
             
             if status:

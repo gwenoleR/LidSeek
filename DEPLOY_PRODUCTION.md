@@ -1,46 +1,46 @@
-# Déploiement en production avec Docker
+# Production deployment with Docker
 
 Ce guide explique comment builder et lancer MusicSearcher en production avec Docker et docker-compose.
 
-## Prérequis
+## Prerequisites
 - Docker et docker-compose installés
 - Un fichier `.env.production` à la racine du projet contenant vos secrets (voir exemple ci-dessous)
 - Les dossiers `music_downloads/`, `formatted_songs/`, et `slskd_config/` présents
 
-## Exemple de fichier `.env.production`
+## Example `.env.production` file
 ```
 SLSKD_API_KEY=remplacez_par_votre_cle_secrete
 ```
 
-## Construction de l'image
+## Building the image
 
 ```sh
 docker compose -f docker-compose.production.yml build
 ```
 
-## Lancement des services
+## Starting the services
 
 ```sh
 docker compose --env-file .env.production -f docker-compose.production.yml up -d
 ```
 
-## Structure des fichiers importants
+## Important file structure
 - `docker-compose.production.yml` : configuration des services pour la production
 - `Dockerfile.production` : image optimisée pour la production
 - `.env.production` : secrets et variables d'environnement (ne pas versionner)
 
-## Bonnes pratiques
+## Best practices
 - Ne versionnez jamais vos secrets ou fichiers `.env.production`
 - Utilisez des volumes pour conserver les téléchargements et logs
 - Mettez à jour les images régulièrement (`docker pull ...`)
 
-## Arrêter les services
+## Stopping the services
 
 ```sh
 docker compose -f docker-compose.production.yml down
 ```
 
-## Mise à jour
+## Update
 
 1. Puller les dernières modifications du code
 2. Rebuilder l'image :

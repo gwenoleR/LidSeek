@@ -13,23 +13,23 @@ class TrackMatcher:
 
     def compare_track_names(self, name1: str, name2: str) -> float:
         """Compare deux noms de pistes et retourne leur ratio de similarité."""
-        # Nettoyer les noms
+        # Clean names
         clean1 = self._clean_track_name(name1)
         clean2 = self._clean_track_name(name2)
         
-        # Calculer le ratio de similarité
+        # Compute similarity ratio
         ratio = difflib.SequenceMatcher(None, clean1, clean2).ratio()
         return ratio
 
     def _clean_track_name(self, name: str) -> str:
         """Nettoie un nom de piste pour la comparaison."""
-        # Enlever les numéros de piste au début (ex: "01 -" ou "1.")
+        # Remove track numbers at the start (e.g., "01 -" or "1.")
         name = re.sub(r'^\d+[\s.-]+', '', name)
 
-        # Enlever l'extension audio connue (mp3, flac, wav, etc.)
+        # Remove known audio extension (mp3, flac, wav, etc.)
         name = re.sub(r'\.(mp3|flac|wav|aac|ogg|m4a)$', '', name, flags=re.IGNORECASE)
 
-        # Enlever les caractères spéciaux et convertir en minuscules
+        # Remove special characters and convert to lowercase
         name = re.sub(r'[^\w\s.]', '', name.lower())
 
         return name.strip()
@@ -46,11 +46,11 @@ class TrackMatcher:
             Dictionnaire avec l'ID de la piste voulue comme clé et le fichier correspondant comme valeur
         """
         matching_files: Dict[str, SlskFile] = {}
-        matched_tracks = set()  # Pour éviter les doublons
+        matched_tracks = set()  # To avoid duplicates
         
-        # Filtrer d'abord par extension
+        # Filter first by extension
         valid_files = [f for f in available_files.get_audio_files() if f.extension.lower() in [ext.lower().strip('.') for ext in allowed_extensions]]
-        self.logger.debug(f"Valid files on folder {available_files.name}: {valid_files}")
+        self.logger.debug(f"Valid files in folder {available_files.name}: {valid_files}")
         
         for track in wanted_tracks:
             track_id = track.get('id')
@@ -62,7 +62,7 @@ class TrackMatcher:
             best_ratio = self.minimum_ratio
             
             for file in valid_files:
-                # Éviter les fichiers déjà matchés
+                # Avoid already matched files
                 if file in matching_files.values():
                     continue
                     
@@ -72,13 +72,13 @@ class TrackMatcher:
                     best_match = file
             
             if best_match and best_match not in matching_files.values():
-                self.logger.info(f"Match trouvé: Track ID '{track_id}' - '{track_title}' -> '{best_match.filename}' (ratio: {best_ratio:.2f})")
+                self.logger.info(f"Match found: Track ID '{track_id}' - '{track_title}' -> '{best_match.filename}' (ratio: {best_ratio:.2f})")
                 matching_files[track_id] = best_match
                 matched_tracks.add(track_title)
         
-        # Log des pistes non trouvées
+        # Log tracks not found
         unmatched = [t.get('title') for t in wanted_tracks if t.get('title') not in matched_tracks]
         if unmatched:
-            self.logger.warning(f"Pistes non trouvées: {', '.join(unmatched)}")
+            self.logger.warning(f"Tracks not found: {', '.join(unmatched)}")
             
         return matching_files

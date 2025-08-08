@@ -15,7 +15,7 @@ import atexit
 def create_app():
     app = Flask(__name__)
     
-    # Initialisation des services
+    # Initialize services
     redis_client = redis.Redis(
         host=Config.REDIS_HOST,
         port=Config.REDIS_PORT,
@@ -29,7 +29,7 @@ def create_app():
         Config.CACHE_EXPIRATION
     )
     
-    # Initialisation du DownloadManager avec Slskd
+    # Initialize DownloadManager with Slskd
     download_manager = DownloadManager(db)
     slskd_downloader = SlskdDownloader()
     slskd_downloader.configure(
@@ -46,14 +46,14 @@ def create_app():
     
     library_service = LibraryService(db)
 
-    # Initialisation et démarrage du gestionnaire de tâches en arrière-plan
+    # Initialize and start the background task manager
     background_task_manager = BackgroundTaskManager()
     background_task_manager.start_download_monitor(download_manager, interval=Config.DOWNLOAD_CHECK_INTERVAL)
 
-    # Enregistrer la fonction d'arrêt propre
+    # Register the clean shutdown function
     atexit.register(background_task_manager.stop_all)
 
-    # Enregistrement des routes
+    # Register routes
     app.register_blueprint(init_album_routes(musicbrainz_service, download_manager))
     app.register_blueprint(init_download_routes(musicbrainz_service, download_manager))
     app.register_blueprint(init_library_routes(library_service))

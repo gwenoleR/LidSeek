@@ -1,31 +1,31 @@
-# Environnements virtuels
+# Virtual environments
 /.venv
 /venv
 
 .env*
 slskd_config/
 
-# Dossiers de téléchargements et de fichiers générés
+# Download and generated files folders
 /music_downloads/
 /formatted_songs/
 /app/logs/
 /data/
 
-# Fichiers temporaires et caches Python
+# Python temporary files and caches
 **/__pycache__/
 **/*.pyc
 **/*.pyo
 
-# Bases de données et logs
+# Databases and logs
 **/*.db
 **/*.sqlite3
 **/*.log
 
-# Fichiers de configuration d'exemple à ne PAS ignorer
+# Example config files to NOT ignore
 !slskd_config/slskd.example.yml
 !.env.example
 
-# Fichiers divers à ignorer
+# Miscellaneous files to ignore
 todo.md
 
 .vscode/

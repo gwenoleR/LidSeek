@@ -28,7 +28,7 @@ class MusicBrainzService:
         raise ValueError("Artiste non trouvé.")
 
     def get_albums_for_artist(self, mbid, limit=100, force_refresh=False, primary_types=None, secondary_types=None):
-        # Construction d'une clé de cache unique selon les filtres
+        # Build a unique cache key based on filters
         cache_key = f"albums:{mbid}:{'-'.join(primary_types or ['all'])}:{'-'.join(secondary_types or ['all'])}"
         cached_albums = None if force_refresh else self.redis_client.get(cache_key)
         if cached_albums:
@@ -37,10 +37,10 @@ class MusicBrainzService:
         albums_dict = {}
         offset = 0
 
-        # Préparation du paramètre type pour l'API MusicBrainz
+        # Prepare the 'type' parameter for the MusicBrainz API
         type_param = None
         if primary_types:
-            # 'type' accepte une liste séparée par |
+            # 'type' accepts a | separated list
             type_param = '|'.join([t for t in primary_types if t != 'other'])
         if not type_param:
             type_param = 'album|ep'
@@ -64,14 +64,14 @@ class MusicBrainzService:
             for group in release_groups:
                 secondary_types_group = [t.lower() for t in group.get('secondary-types', [])]
                 primary_type_group = group.get('primary-type', 'Unknown').lower()
-                # Filtrage primary_type 'other'
+                # Filter primary_type 'other'
                 if primary_types and 'other' in primary_types:
                     if primary_type_group in ['album', 'ep', 'single', 'broadcast']:
                         continue
-                # Filtrage secondaire
+                # Secondary filtering
                 if secondary_types is not None:
                     if len(secondary_types) == 0:
-                        # Si aucun secondary_type sélectionné, on veut uniquement ceux sans secondary type
+                        # If no secondary_type selected, only keep those without secondary type
                         if len(secondary_types_group) > 0:
                             continue
                     else:
@@ -101,7 +101,7 @@ class MusicBrainzService:
         if cached_tracks:
             return json.loads(cached_tracks)
 
-        # Obtenir d'abord les informations du release-group
+        # Get release-group info first
         url = f"{self.BASE_URL}/release-group/{album_id}"
         params = {
             'fmt': 'json',
@@ -111,7 +111,7 @@ class MusicBrainzService:
         response.raise_for_status()
         release_group_data = response.json()
 
-        # Rechercher tous les releases de ce release-group
+        # Search all releases for this release-group
         url = f"{self.BASE_URL}/release"
         params = {
             'release-group': album_id,
@@ -126,7 +126,7 @@ class MusicBrainzService:
             return []
 
         releases = releases_data['releases']
-        # Nouvelle priorité : CD high > CD > high > autres
+        # Priority: CD high > CD > high > others
         def is_cd_release(release):
             for medium in release.get('media', []):
                 fmt = medium.get('format')
@@ -146,26 +146,26 @@ class MusicBrainzService:
         else:
             releases_to_consider = releases
 
-        # Filtrer uniquement les releases au format CD ou Digital Media, et sans édition spéciale
+        # Only keep releases in CD or Digital Media format, and without special edition
         def is_standard_release(release):
-            # Formats acceptés
+            # Accepted formats
             valid_formats = {"CD", "DIGITAL MEDIA"}
-            # Mots-clés à exclure dans le titre
+            # Keywords to exclude in the title
             exclude_keywords = [
                 "deluxe", "extended", "remaster", "bonus", "special", "anniversary", "edition", "expanded", "collector", "reissue", "superior", "definitive", "ultimate", "tour", "live"
             ]
-            # Vérifier le format
+            # Check format
             has_valid_format = any(
                 (medium.get('format') or '').strip().upper() in valid_formats
                 for medium in release.get('media', [])
             )
             if not has_valid_format:
                 return False
-            # Vérifier les mots-clés dans le titre
+            # Check keywords in the title
             title = release.get('title', '').lower()
             if any(kw in title for kw in exclude_keywords):
                 return False
-            # Vérifier les secondary-types
+            # Check secondary-types
             for t in release.get('secondary-types', []):
                 if any(kw in t.lower() for kw in exclude_keywords):
                     return False
@@ -173,7 +173,7 @@ class MusicBrainzService:
 
         standard_releases = [r for r in releases if is_standard_release(r)]
         if standard_releases:
-            # Trier par qualité : high > normal > low > None
+            # Sort by quality: high > normal > low > None
             def quality_sort_key(r):
                 q = r.get('quality')
                 if q == 'high':
@@ -186,9 +186,9 @@ class MusicBrainzService:
             standard_releases.sort(key=quality_sort_key)
             releases_to_consider = standard_releases
         else:
-            releases_to_consider = releases  # fallback si rien trouvé
+            releases_to_consider = releases  # fallback if nothing found
 
-        # Prendre la première release de la liste triée
+        # Take the first release from the sorted list
         release = releases_to_consider[0]
 
         album_info = {
@@ -203,7 +203,7 @@ class MusicBrainzService:
         for medium in release.get('media', []):
             disc_number = medium.get('position', 1)
             if disc_number != 1:
-                continue  # On ne prend que le CD1
+                continue  # Only take CD1
             for track in medium.get('tracks', []):
                 recording = track.get('recording', {})
                 track_id = (
@@ -221,7 +221,7 @@ class MusicBrainzService:
                 }
                 album_info['tracks'].append(track_info)
 
-        # Trier les pistes par numéro de piste uniquement (CD1 seulement)
+        # Sort tracks by track number only (CD1 only)
         def track_sort_key(x):
             try:
                 pos = int(x['position'])

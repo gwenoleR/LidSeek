@@ -13,7 +13,7 @@ class BackgroundTaskManager:
     def start_download_monitor(self, download_manager: DownloadManager, interval=5):
         """Démarre la surveillance des téléchargements en arrière-plan."""
         def monitor_downloads():
-            self.logger.info("Démarrage de la surveillance des téléchargements")
+            self.logger.info("Starting download monitoring")
             while not self.stop_event.is_set():
                 try:
                     # Utiliser un verrou pour éviter les vérifications simultanées
@@ -22,30 +22,30 @@ class BackgroundTaskManager:
                             # Vérifier uniquement les albums en cours de téléchargement
                             downloading_albums = download_manager.status_tracker.get_downloading_albums()
                             if downloading_albums:
-                                self.logger.info(f"Vérification de {len(downloading_albums)} téléchargements actifs")
+                                self.logger.info(f"Checking {len(downloading_albums)} active downloads")
                                 for album in downloading_albums:
                                     download_manager._check_download_status(album)
                             else:
-                                self.logger.debug("Aucun téléchargement actif à vérifier")
+                                self.logger.debug("No active downloads to check")
                         finally:
                             self.processing_lock.release()
                 except Exception as e:
-                    self.logger.error(f"Erreur lors de la surveillance des téléchargements: {str(e)}")
+                    self.logger.error(f"Error during download monitoring: {str(e)}")
                     self.logger.exception(e)
                 time.sleep(interval)
 
         thread = threading.Thread(target=monitor_downloads, daemon=True)
         thread.start()
         self.threads.append(thread)
-        self.logger.info("Thread de surveillance des téléchargements démarré")
+        self.logger.info("Download monitoring thread started")
 
     def stop_all(self):
         """Arrête toutes les tâches d'arrière-plan."""
-        self.logger.info("Arrêt des tâches en arrière-plan...")
+        self.logger.info("Stopping background tasks...")
         self.stop_event.set()
         
         for thread in self.threads:
             thread.join()
         
         self.threads.clear()
-        self.logger.info("Toutes les tâches arrêtées")
+        self.logger.info("All tasks stopped")
