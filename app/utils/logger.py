@@ -2,7 +2,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(name, log_file, level=logging.DEBUG):
+def setup_logger(name, log_file, level=logging.INFO):
     """Configure un logger avec rotation des fichiers"""
     
     # Créer le dossier logs s'il n'existe pas

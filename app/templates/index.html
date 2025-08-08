@@ -43,6 +43,37 @@
     .nav-link:hover {
       background-color: #f8f9fa;
     }
+    .search-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 30px;
+      background: #f8f9fa;
+      padding: 12px 18px;
+      border-radius: 6px;
+      border: 1px solid #e3e6ea;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .search-form input[type="text"] {
+      padding: 7px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1em;
+      flex: 1;
+    }
+    .search-form button {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 4px;
+      background: #e9ecef;
+      color: #333;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .search-form button:hover {
+      background: #d4dae0;
+    }
   </style>
 </head>
 <body>
@@ -54,28 +85,55 @@
       </nav>
     </div>
 
-    <form action="/albums" method="get">
-      <label>Nom de l'artiste :
+    <form action="/albums" method="get" class="search-form">
+      <label style="margin: 0; font-weight: 500; color: #444;">Nom de l'artiste :
         <input type="text" name="artist" required>
       </label>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-weight: 500; color: #444;">Type principal&nbsp;:</span>
+        <label><input type="checkbox" name="primary_type" value="album" checked> Album</label>
+        <label><input type="checkbox" name="primary_type" value="single"> Single</label>
+        <label><input type="checkbox" name="primary_type" value="ep"> EP</label>
+        <label><input type="checkbox" name="primary_type" value="broadcast"> Broadcast</label>
+        <label><input type="checkbox" name="primary_type" value="other"> Autre</label>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-weight: 500; color: #444;">Type secondaire&nbsp;:</span>
+        <label><input type="checkbox" name="secondary_type" value="compilation"> Compilation</label>
+        <label><input type="checkbox" name="secondary_type" value="soundtrack"> Soundtrack</label>
+        <label><input type="checkbox" name="secondary_type" value="live"> Live</label>
+        <label><input type="checkbox" name="secondary_type" value="remix"> Remix</label>
+        <label><input type="checkbox" name="secondary_type" value="mixtape/street"> Mixtape/Street</label>
+        <label><input type="checkbox" name="secondary_type" value="demo"> Demo</label>
+        <label><input type="checkbox" name="secondary_type" value="interview"> Interview</label>
+      </div>
       <button type="submit">Rechercher</button>
     </form>
     {% if results %}
           <h2>Résultats pour {{ results.artist }}</h2>
           <div style="margin-bottom: 20px;">
-              <a href="/refresh/albums?artist={{ results.artist }}&artist_id={{ results.mbid }}" 
-                 style="display: inline-block; padding: 5px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #333;">
-                  🔄 Rafraîchir les albums
-              </a>
+              <form id="refresh-form" method="get" action="/refresh/albums" style="display:inline;">
+                <input type="hidden" name="artist" value="{{ results.artist }}">
+                <input type="hidden" name="artist_id" value="{{ results.mbid }}">
+                {% for pt in request.args.getlist('primary_type') %}
+                  <input type="hidden" name="primary_type" value="{{ pt }}">
+                {% endfor %}
+                {% for st in request.args.getlist('secondary_type') %}
+                  <input type="hidden" name="secondary_type" value="{{ st }}">
+                {% endfor %}
+                <button type="submit" style="display: inline-block; padding: 5px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #333; cursor:pointer;">🔄 Rafraîchir les albums</button>
+              </form>
           </div>
-          <ul>
+          <ul style="list-style: none; padding: 0; margin: 0;">
           {% for album in results.albums %}
-              <li>
-                  <a href="/album/{{ album.id }}?artist_id={{ results.mbid }}" class="album-link">
-                      <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
-                      <span class="type-info">
-                          ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
-                      </span>
+              <li style="margin-bottom: 10px;">
+                  <a href="/album/{{ album.id }}?artist_id={{ results.mbid }}" class="album-link" style="display: flex; align-items: center; border: 1px solid #eee; border-radius: 6px; padding: 10px; transition: box-shadow 0.2s; background: #fafbfc;">
+                      <div style="flex: 1;">
+                        <strong>{{ album.title }}</strong> — {{ album.date or "Date inconnue" }}
+                        <span class="type-info">
+                            ({{ album.primary_type }}{% if album.secondary_types %}, {{ album.secondary_types|join(', ') }}{% endif %})
+                        </span>
+                      </div>
                   </a>
               </li>
           {% endfor %}

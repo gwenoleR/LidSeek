@@ -6,12 +6,18 @@ def init_routes(musicbrainz_service, download_manager):
     @album_routes.route('/albums', methods=['GET'])
     def albums():
         artist_name = request.args.get('artist')
+        primary_types = request.args.getlist('primary_type')
+        secondary_types = request.args.getlist('secondary_type')
         if not artist_name:
             return jsonify({'error': 'Paramètre "artist" requis'}), 400
 
         try:
             mbid = musicbrainz_service.get_artist_mbid(artist_name)
-            album_list = musicbrainz_service.get_albums_for_artist(mbid)
+            album_list = musicbrainz_service.get_albums_for_artist(
+                mbid,
+                primary_types=primary_types,
+                secondary_types=secondary_types
+            )
 
             # Récupérer le statut de téléchargement pour chaque album
             for album in album_list:

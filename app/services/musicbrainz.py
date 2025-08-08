@@ -27,8 +27,9 @@ class MusicBrainzService:
             return artist_id
         raise ValueError("Artiste non trouvé.")
 
-    def get_albums_for_artist(self, mbid, limit=100, force_refresh=False):
-        cache_key = f"albums:{mbid}"
+    def get_albums_for_artist(self, mbid, limit=100, force_refresh=False, primary_types=None, secondary_types=None):
+        # Construction d'une clé de cache unique selon les filtres
+        cache_key = f"albums:{mbid}:{'-'.join(primary_types or ['all'])}:{'-'.join(secondary_types or ['all'])}"
         cached_albums = None if force_refresh else self.redis_client.get(cache_key)
         if cached_albums:
             return json.loads(cached_albums)
@@ -36,43 +37,61 @@ class MusicBrainzService:
         albums_dict = {}
         offset = 0
 
+        # Préparation du paramètre type pour l'API MusicBrainz
+        type_param = None
+        if primary_types:
+            # 'type' accepte une liste séparée par |
+            type_param = '|'.join([t for t in primary_types if t != 'other'])
+        if not type_param:
+            type_param = 'album|ep'
+
         while True:
             url = f"{self.BASE_URL}/release-group"
             params = {
                 'artist': mbid,
-                'type': 'album|ep',
                 'fmt': 'json',
                 'limit': limit,
                 'offset': offset
             }
+            if type_param:
+                params['type'] = type_param
             response = requests.get(url, headers=self.headers, params=params)
             response.raise_for_status()
             data = response.json()
             release_groups = data.get('release-groups', [])
-            
             if not release_groups:
                 break
-                
             for group in release_groups:
-                secondary_types = group.get('secondary-types', [])
-                if not any(t in ['Compilation', 'Soundtrack', 'Live', 'Interview', 'Demo', 'Remix'] for t in secondary_types):
-                    album_id = group['id']
-                    if album_id not in albums_dict:
-                        albums_dict[album_id] = {
-                            'id': album_id,
-                            'title': group['title'],
-                            'date': group.get('first-release-date'),
-                            'secondary_types': secondary_types,
-                            'primary_type': group.get('primary-type', 'Unknown')
-                        }
-                        
+                secondary_types_group = [t.lower() for t in group.get('secondary-types', [])]
+                primary_type_group = group.get('primary-type', 'Unknown').lower()
+                # Filtrage primary_type 'other'
+                if primary_types and 'other' in primary_types:
+                    if primary_type_group in ['album', 'ep', 'single', 'broadcast']:
+                        continue
+                # Filtrage secondaire
+                if secondary_types is not None:
+                    if len(secondary_types) == 0:
+                        # Si aucun secondary_type sélectionné, on veut uniquement ceux sans secondary type
+                        if len(secondary_types_group) > 0:
+                            continue
+                    else:
+                        if not any(st in secondary_types_group for st in [s.lower() for s in secondary_types]):
+                            continue
+                album_id = group['id']
+                if album_id not in albums_dict:
+                    albums_dict[album_id] = {
+                        'id': album_id,
+                        'title': group['title'],
+                        'date': group.get('first-release-date'),
+                        'secondary_types': group.get('secondary-types', []),
+                        'primary_type': group.get('primary-type', 'Unknown')
+                    }
             if len(release_groups) < limit:
                 break
             offset += limit
 
         albums = list(albums_dict.values())
         sorted_albums = sorted(albums, key=lambda x: x['date'] or "9999")
-        
         self.redis_client.setex(cache_key, self.cache_expiration, json.dumps(sorted_albums))
         return sorted_albums
 
