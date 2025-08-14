@@ -10,6 +10,7 @@ class TrackMatcher:
     def __init__(self, minimum_ratio: float = 0.5):
         self.minimum_ratio = minimum_ratio
         self.logger = setup_logger('track_matcher', 'track_matcher.log')
+        self.logger.debug(f'Init TrackMatcher with a ratio of {minimum_ratio}')
 
     def compare_track_names(self, name1: str, name2: str) -> float:
         """Compare deux noms de pistes et retourne leur ratio de similarité."""

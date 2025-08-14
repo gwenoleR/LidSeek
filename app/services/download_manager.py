@@ -18,7 +18,7 @@ class DownloadManager:
         # Initialize services
         self.filesystem = FileSystemService("/downloads", Config.FORMATTED_SONGS_DIR)
         self.status_tracker = DownloadStatusTracker(database)
-        self.track_matcher = TrackMatcher()
+        self.track_matcher = TrackMatcher(Config.SLSKD_MIN_MATCH_RATIO)
         self.album_processor = AlbumProcessor(self.filesystem, self.status_tracker)
 
     def configure_downloader(self, downloader: Downloader) -> None:
