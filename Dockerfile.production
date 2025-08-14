@@ -1,4 +1,4 @@
-# Production Dockerfile for MusicSearcher
+# Production Dockerfile for LidSeek
 FROM python:3.11-slim as base
 
 WORKDIR /app
@@ -16,8 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 
 # Use a non-root user
-RUN useradd -m musicsearcher && chown -R musicsearcher /app
-USER musicsearcher
+RUN useradd -m lidseek && chown -R lidseek /app
+USER lidseek
 
 # Startup command
 CMD ["python", "-m", "app.main"]

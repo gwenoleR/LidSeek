@@ -1,6 +1,6 @@
 # Production deployment with Docker
 
-Ce guide explique comment builder et lancer MusicSearcher en production avec Docker et docker-compose.
+Ce guide explique comment builder et lancer LidSeek en production avec Docker et docker-compose.
 
 ## Prerequisites
 - Docker et docker-compose installés
