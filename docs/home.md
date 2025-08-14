@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/public/assets/images/logo.svg" width="250" alt="Logo" >
+  <img src="/assets/images/logo.svg" width="250" alt="Logo" >
 </p>
 
 <h1 align="center">LidSeek</h1>
@@ -37,6 +37,6 @@ LidSeek is a self-hosted application that automates music album downloads using 
 LidSeek is designed to be easy to use, requiring minimal manual intervention once set up. It is ideal for users who want to automate music collection management without relying on traditional indexers.
 
 <video controls width="100%"  onloadstart="this.playbackRate = 2.0;">
-  <source src="/docs/assets/videos/lidseek-showcase.webm" type="video/webm" />
+  <source src="/assets/videos/lidseek-showcase.webm" type="video/webm" />
 
 </video>
