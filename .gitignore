@@ -28,6 +28,6 @@ slskd_config/
 # Miscellaneous files to ignore
 todo.md
 docker-compose.yml
-
+.DS_Store
 .vscode/
 .idea/
