@@ -27,7 +27,7 @@ nano config/soulseek.yml
 ```yaml
 services:
   app:
-    image: 
+    image: gwenoler/lidseek:latest
     ports:
       - "8081:8081"
     environment:
