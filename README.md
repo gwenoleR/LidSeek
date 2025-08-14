@@ -36,6 +36,5 @@ LidSeek is a self-hosted application that automates music album downloads using 
 
 LidSeek is designed to be easy to use, requiring minimal manual intervention once set up. It is ideal for users who want to automate music collection management without relying on traditional indexers.
 
-<video controls width="100%"  onloadstart="this.playbackRate = 2.0;">
-  <source src="https://github.com/gwenoleR/LidSeek/raw/refs/heads/main/docs/assets/videos/lidseek-showcase.webm" type="video/webm" />
-</video>
+# Showcase
+[lidseek-showcase.webm](https://github.com/user-attachments/assets/58eb08f9-3baf-4e17-873c-e43cbf1a300e)
