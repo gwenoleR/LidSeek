@@ -5,6 +5,12 @@
 <h1 align="center">LidSeek</h1>
 <h3 align="center">A Lidarr alternative based on Soulseek</h3>
 
+
+<p align="center">
+  <a href="#showcase">Showcase</a> •
+  <a href="#documentation">Docs</a>
+</p>
+
 <p align="center">
   <a href="https://www.buymeacoffee.com/gwenoler" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;" ></a>
 </p>
@@ -38,3 +44,7 @@ LidSeek is designed to be easy to use, requiring minimal manual intervention onc
 
 # Showcase
 [lidseek-showcase.webm](https://github.com/user-attachments/assets/58eb08f9-3baf-4e17-873c-e43cbf1a300e)
+
+# Documentation
+
+Head over to the [documentation](https://gwenoler.github.io/LidSeek/#) to get started with the installation and configuration of LidSeek.
