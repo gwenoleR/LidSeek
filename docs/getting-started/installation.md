@@ -37,6 +37,7 @@ services:
     volumes:
       - ./music_downloads:/downloads
       - ./formatted_songs:/formatted_songs
+      - ./app/data:/app/app/data
     depends_on:
       - redis
       - slskd
