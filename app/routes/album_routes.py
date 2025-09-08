@@ -171,6 +171,16 @@ def init_routes(musicbrainz_service, download_manager):
             status_tracker.update_album_status(album_id, DownloadStatus.COMPLETED)
             # Lancer le process de l'album (organisation des fichiers)
             album_processor.process_completed_album(album_info)
+
+            # Suppression des téléchargements Slsk terminés
+            downloader = getattr(download_manager, 'downloader', None)
+            if downloader:
+                # On récupère les fichiers Slsk associés à l'album
+                files_status = downloader.get_directory_files_status(album_info['title'])
+                for file in files_status:
+                    if file.get('state') == 'Completed, Succeeded':
+                        downloader.remove_download(file.get('username'), file.get('id'))
+
             return jsonify({'success': True, 'updated_tracks': updated})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
