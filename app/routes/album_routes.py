@@ -1,8 +1,18 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for
+from app.services.album_processor import AlbumProcessor
+from app.services.filesystem import FileSystemService
+from app.database import DownloadStatus
+from app.config.settings import Config
 
 album_routes = Blueprint('album_routes', __name__)
 
 def init_routes(musicbrainz_service, download_manager):
+
+    # Initialisation des services nécessaires pour le process
+    status_tracker = download_manager.status_tracker if hasattr(download_manager, 'status_tracker') else download_manager
+    filesystem = FileSystemService("/downloads", Config.FORMATTED_SONGS_DIR)
+    album_processor = AlbumProcessor(filesystem, status_tracker)
+
     @album_routes.route('/albums', methods=['GET'])
     def albums():
         artist_name = request.args.get('artist')
@@ -141,5 +151,28 @@ def init_routes(musicbrainz_service, download_manager):
 
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+        
 
+    @album_routes.route('/album/<album_id>/mark_complete', methods=['POST'])
+    def mark_album_complete(album_id):
+        try:
+            # Récupérer les infos de l'album
+            album_info = musicbrainz_service.get_album_tracks(album_id)
+            tracks_status = status_tracker.get_tracks_status(album_id)
+            updated = 0
+            # Marquer toutes les pistes téléchargées ou existantes comme terminées
+            for track_id, track_info in tracks_status.items():
+                if track_info['status'] != DownloadStatus.COMPLETED.value:
+                    # Si le fichier existe localement, on le considère comme terminé
+                    if track_info['local_path']:
+                        status_tracker.update_track_status(track_id, DownloadStatus.COMPLETED, local_path=track_info['local_path'], slsk_id=track_info.get('slsk_id'))
+                        updated += 1
+            # Mettre le statut de l'album à terminé
+            status_tracker.update_album_status(album_id, DownloadStatus.COMPLETED)
+            # Lancer le process de l'album (organisation des fichiers)
+            album_processor.process_completed_album(album_info)
+            return jsonify({'success': True, 'updated_tracks': updated})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+        
     return album_routes

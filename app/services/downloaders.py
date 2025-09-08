@@ -9,6 +9,7 @@ from enum import Enum
 import os
 from typing import List, Dict, Optional
 from .slsk_models import SlskDirectory, SlskFile, SlskSearchResult
+from app.config.settings import Config
 
 class SlskdFileState(Enum):
     """États possibles d'un fichier dans Slskd"""
@@ -45,7 +46,7 @@ class Downloader(ABC):
         self.logger = setup_logger('downloader', 'downloads.log')
         self.minimum_match_ratio = 0.5
         self.allowed_filetypes = ["mp3", "flac"]
-        self.ignored_users = []
+        self.ignored_users = Config.SLSKD_IGNORED_USERS
         
     @abstractmethod
     def configure(self, **kwargs):
@@ -84,7 +85,7 @@ class SlskdDownloader(Downloader):
         super().__init__()
         self.client = None
         self.logger = setup_logger('slskd_downloader', 'downloads.log')
-        self.ignored_users = []
+        self.ignored_users = Config.SLSKD_IGNORED_USERS
         self.allowed_filetypes = ["mp3", "flac"]
         self.minimum_match_ratio = 0.5
         

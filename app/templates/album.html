@@ -245,6 +245,12 @@
                                 >
                                     Annuler
                                 </button>
+                                <button 
+                                    class="download-button" 
+                                    onclick="markAlbumComplete('{{ album.id }}')"
+                                >
+                                    Marquer comme terminé
+                                </button>
                             {% elif album.download_status == 'downloading' %}
                                 Téléchargement en cours ({{ album.completed_tracks }}/{{ album.total_tracks }})
                                 <button 
@@ -252,6 +258,12 @@
                                     onclick="cancelDownload('{{ album.id }}')"
                                 >
                                     Annuler
+                                </button>
+                                <button 
+                                    class="download-button" 
+                                    onclick="markAlbumComplete('{{ album.id }}')"
+                                >
+                                    Marquer comme terminé
                                 </button>
                             {% elif album.download_status == 'completed' %}
                                 Téléchargement terminé
@@ -262,6 +274,12 @@
                                     onclick="retryDownload('{{ album.id }}')"
                                 >
                                     Réessayer le téléchargement
+                                </button>
+                                <button 
+                                    class="download-button" 
+                                    onclick="markAlbumComplete('{{ album.id }}')"
+                                >
+                                    Marquer comme terminé
                                 </button>
                             {% else %}
                                 Erreur lors du téléchargement
@@ -275,8 +293,37 @@
                         >
                             Télécharger l'album
                         </button>
+                        <button 
+                            class="download-button" 
+                            onclick="markAlbumComplete('{{ album.id }}')"
+                        >
+                            Marquer comme terminé
+                        </button>
                     {% endif %}
                 {% endif %}
+    <script>
+    function markAlbumComplete(albumId) {
+        if (!confirm('Êtes-vous sûr de vouloir marquer cet album comme terminé ?')) return;
+        fetch(`/album/${albumId}/mark_complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Erreur : ' + (data.error || 'Impossible de marquer comme terminé.'));
+            }
+        })
+        .catch(err => {
+            alert('Erreur réseau : ' + err);
+        });
+    }
+    </script>
             </div>
         </div>
 
