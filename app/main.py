@@ -1,4 +1,5 @@
 import redis
+import os
 from flask import Flask, render_template
 from app.config.settings import Config
 from app.database import Database
@@ -22,7 +23,7 @@ def create_app():
         decode_responses=True
     )
     
-    db = Database()
+    db = Database(os.path.join(os.path.dirname(__file__), 'data', 'downloads.db'))
     musicbrainz_service = MusicBrainzService(
         Config.USER_AGENT,
         redis_client,

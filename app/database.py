@@ -2,6 +2,8 @@ import sqlite3
 from datetime import datetime
 from enum import Enum
 import os
+import app.migrate
+
 
 class DownloadStatus(Enum):
     PENDING = "pending"
@@ -14,6 +16,7 @@ class Database:
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Create folder if needed
         self.init_db()
+        app.migrate.run_migrations()
 
     def init_db(self):
         """Initialise la base de données avec les tables nécessaires."""
@@ -40,6 +43,7 @@ class Database:
                     status TEXT DEFAULT 'pending',
                     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     download_date TIMESTAMP,
+                    source_username TEXT,
                     FOREIGN KEY (artist_id) REFERENCES artists (id)
                 )
             ''')
@@ -66,9 +70,37 @@ class Database:
                     FOREIGN KEY (album_id) REFERENCES albums (id)
                 )
             ''')
+            # Album source user blacklist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS album_blacklist_sources (
+                    album_id TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (album_id, username)
+                )
+            ''')
 
             conn.commit()
 
+    def set_album_source_username(self, album_id, username):
+        """Enregistre le user slskd source pour un album."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE albums SET source_username = ? WHERE id = ?
+            ''', (username, album_id))
+            conn.commit()
+
+    def get_album_source_username(self, album_id):
+        """Récupère le user slskd source pour un album."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT source_username FROM albums WHERE id = ?
+            ''', (album_id,))
+            row = cursor.fetchone()
+            return row[0] if row and row[0] else None
+        
     def add_artist(self, artist_id, name):
         """Ajoute ou met à jour un artiste."""
         with sqlite3.connect(self.db_path) as conn:
@@ -78,6 +110,25 @@ class Database:
                 VALUES (?, ?)
             ''', (artist_id, name))
             conn.commit()
+
+    def add_blacklisted_source(self, album_id, username):
+        """Ajoute un user slskd à la blacklist pour un album."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR IGNORE INTO album_blacklist_sources (album_id, username)
+                VALUES (?, ?)
+            ''', (album_id, username))
+            conn.commit()
+
+    def get_blacklisted_sources(self, album_id):
+        """Retourne la liste des users slskd blacklistés pour un album."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT username FROM album_blacklist_sources WHERE album_id = ?
+            ''', (album_id,))
+            return [row[0] for row in cursor.fetchall()]
 
     def add_album(self, album_id, artist_id, title, release_date=None, cover_url=None):
         """Ajoute ou met à jour un album."""

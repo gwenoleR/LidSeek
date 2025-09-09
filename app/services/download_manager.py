@@ -114,6 +114,7 @@ class DownloadManager:
 
             # Search for the album
             query = f"{album['artist_name']} {album['title']}"
+            blacklisted_users = self.status_tracker.db.get_blacklisted_sources(album['id'])
             search_results = self.downloader.search(query)
             for r in search_results:
                 self.logger.debug(r)
@@ -136,7 +137,7 @@ class DownloadManager:
 
             # Analyze results
             for result in search_results:
-                if result.username in self.downloader.ignored_users:
+                if result.username in self.downloader.ignored_users or result.username in blacklisted_users:
                     continue
 
                 # Filter by file type and minimum size (to avoid snippets)
@@ -185,6 +186,7 @@ class DownloadManager:
             self.logger.debug(matching_files)
             if best_result and best_match_count > 0:
                 self.logger.info(f"Starting download with {best_result.username} ({best_match_count} files)")
+                self.status_tracker.db.set_album_source_username(album['id'], best_result.username)
                 return self.downloader.start_download(best_result.username, best_directory_path, best_files)
 
             self.logger.warning(f"No match found for album: {album['title']}")
@@ -258,5 +260,17 @@ class DownloadManager:
             self.logger.error(f"Error checking status: {str(e)}")
 
     def cancel_album(self, album_id: str) -> None:
-        """Annule le téléchargement d'un album."""
+        """Annule le téléchargement d'un album, blacklist la source et supprime les downloads slsk."""
+        username = self.status_tracker.db.get_album_source_username(album_id)
+        album_info = self.status_tracker.get_album_status(album_id)
+        album_title = album_info[1] if album_info else None
+        
+        # Cancel and delete download from slsk 
+        files_status = self.downloader.get_directory_files_status(album_title)
+        for file in files_status:
+            self.downloader.cancel_download(file.get('username'), file.get('id'))
+            self.downloader.remove_download(file.get('username'), file.get('id'))
+        # Cancel on DB and blacklist
         self.status_tracker.cancel_download(album_id)
+        if username:
+            self.status_tracker.db.add_blacklisted_source(album_id, username)
