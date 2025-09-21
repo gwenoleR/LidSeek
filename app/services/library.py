@@ -1,5 +1,6 @@
+
 from app.database import Database, DownloadStatus
-import sqlite3
+from app.models import Album, Artist, Track
 from datetime import datetime
 
 class LibraryService:
@@ -7,59 +8,63 @@ class LibraryService:
         self.db = database
 
     def get_all_albums(self):
-        """Récupère tous les albums de la bibliothèque avec leur statut."""
-        with sqlite3.connect(self.db.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    a.id, a.title, a.cover_url, a.status, a.added_date, a.release_date,
-                    ar.id as artist_id, ar.name as artist_name,
-                    COUNT(t.id) as total_tracks,
-                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_tracks
-                FROM albums a
-                LEFT JOIN artists ar ON a.artist_id = ar.id
-                LEFT JOIN tracks t ON a.id = t.album_id
-                GROUP BY a.id, ar.id, ar.name
-                ORDER BY a.release_date DESC, a.added_date DESC
-            ''')
-            
-            return [{
-                'id': row['id'],
-                'title': row['title'],
-                'cover_url': row['cover_url'],
-                'status': row['status'],
-                'added_date': datetime.fromisoformat(row['added_date']),
-                'release_date': row['release_date'],
-                'artist_id': row['artist_id'],
-                'artist_name': row['artist_name'] or 'Artiste inconnu',
-                'total_tracks': row['total_tracks'],
-                'completed_tracks': row['completed_tracks']
-            } for row in cursor.fetchall()]
+        """Récupère tous les albums de la bibliothèque avec leur statut (ORM)."""
+        session = self.db.session
+        albums = (
+            session.query(Album)
+            .join(Artist, Album.artist_id == Artist.id)
+            .outerjoin(Track, Album.id == Track.album_id)
+            .add_entity(Artist)
+            .add_entity(Track)
+            .all()
+        )
+        # Regrouper par album
+        album_dict = {}
+        for album, artist, track in albums:
+            if album.id not in album_dict:
+                album_dict[album.id] = {
+                    'id': album.id,
+                    'title': album.title,
+                    'cover_url': album.cover_url,
+                    'status': album.status,
+                    'added_date': album.added_date,
+                    'release_date': album.release_date,
+                    'artist_id': artist.id if artist else None,
+                    'artist_name': artist.name if artist else 'Artiste inconnu',
+                    'total_tracks': 0,
+                    'completed_tracks': 0
+                }
+            album_dict[album.id]['total_tracks'] += 1 if track else 0
+            if track and track.status == DownloadStatus.COMPLETED.value:
+                album_dict[album.id]['completed_tracks'] += 1
+        # Trier par release_date DESC, puis added_date DESC
+        result = sorted(album_dict.values(), key=lambda x: (x['release_date'] or '', x['added_date']), reverse=True)
+        return result
 
     def get_artist_albums(self, artist_id):
-        """Récupère tous les albums d'un artiste spécifique."""
-        with sqlite3.connect(self.db.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    a.id, a.title, a.cover_url, a.status, a.added_date,
-                    COUNT(t.id) as total_tracks,
-                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_tracks
-                FROM albums a
-                LEFT JOIN tracks t ON a.id = t.album_id
-                WHERE a.artist_id = ?
-                GROUP BY a.id
-                ORDER BY a.added_date DESC
-            ''', (artist_id,))
-            
-            return [{
-                'id': row['id'],
-                'title': row['title'],
-                'cover_url': row['cover_url'],
-                'status': row['status'],
-                'added_date': datetime.fromisoformat(row['added_date']),
-                'total_tracks': row['total_tracks'],
-                'completed_tracks': row['completed_tracks']
-            } for row in cursor.fetchall()]
+        """Récupère tous les albums d'un artiste spécifique (ORM)."""
+        session = self.db.session
+        albums = (
+            session.query(Album)
+            .filter(Album.artist_id == artist_id)
+            .outerjoin(Track, Album.id == Track.album_id)
+            .add_entity(Track)
+            .all()
+        )
+        album_dict = {}
+        for album, track in albums:
+            if album.id not in album_dict:
+                album_dict[album.id] = {
+                    'id': album.id,
+                    'title': album.title,
+                    'cover_url': album.cover_url,
+                    'status': album.status,
+                    'added_date': album.added_date,
+                    'total_tracks': 0,
+                    'completed_tracks': 0
+                }
+            album_dict[album.id]['total_tracks'] += 1 if track else 0
+            if track and track.status == DownloadStatus.COMPLETED.value:
+                album_dict[album.id]['completed_tracks'] += 1
+        result = sorted(album_dict.values(), key=lambda x: x['added_date'], reverse=True)
+        return result

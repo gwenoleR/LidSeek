@@ -54,8 +54,10 @@ class DownloadManager:
 
         self.status_tracker.update_album_status(album_id, DownloadStatus.PENDING)
 
+        self.logger.info(f"Album updated - List tracks")
         # Add tracks
         for track in album_info['tracks']:
+            self.logger.info(f"Add track - {track.get('id')}")
             if track.get('id'):
                 self.status_tracker.add_track(
                     track['id'],
@@ -64,8 +66,8 @@ class DownloadManager:
                     track['position'],
                     track.get('length'),
                     artist=album_info.get('artist_name'),
-                    album=album_info.get('title'),
-                    track=str(track.get('position')) if track.get('position') else None,
+                    album_name=album_info.get('title'),
+                    track_num=str(track.get('position')) if track.get('position') else None,
                     disc=track.get('disc'),
                     year=album_info.get('release_date', '').split('-')[0] if album_info.get('release_date') else None,
                     albumartist=album_info.get('artist_name')

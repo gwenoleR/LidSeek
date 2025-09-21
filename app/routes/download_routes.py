@@ -18,6 +18,7 @@ def init_routes(musicbrainz_service, download_manager):
             return jsonify({'status': 'success', 'message': 'Album ajouté à la file de téléchargement'})
 
         except Exception as e:
+            print(f"Error on queue download")
             return jsonify({'error': str(e)}), 500
 
     @download_routes.route('/cancel/album/<album_id>', methods=['POST'])

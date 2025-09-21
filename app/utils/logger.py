@@ -5,8 +5,9 @@ from logging.handlers import RotatingFileHandler
 def setup_logger(name, log_file, level=logging.INFO):
     """Configure un logger avec rotation des fichiers"""
     
+    log_dir = '/app/app/logs'
     # Create the logs folder if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
     
     # Create the formatter
     formatter = logging.Formatter(
@@ -16,7 +17,7 @@ def setup_logger(name, log_file, level=logging.INFO):
     
     # Configure the file handler with rotation
     file_handler = RotatingFileHandler(
-        os.path.join('logs', log_file),
+        os.path.join(log_dir, log_file),
         maxBytes=10*1024*1024,  # 10MB
         backupCount=5
     )

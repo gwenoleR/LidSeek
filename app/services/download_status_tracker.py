@@ -10,6 +10,7 @@ class DownloadStatusTracker:
     def update_album_status(self, album_id: str, status: DownloadStatus) -> None:
         """Met à jour le statut d'un album."""
         self.db.update_album_status(album_id, status)
+        self.logger.info(f"Album status updated: {status} (ID: {album_id})")
 
     def update_track_status(self, track_id: str, status: DownloadStatus, local_path: Optional[str] = None, slsk_id: Optional[str] = None) -> None:
         """Met à jour le statut d'une piste."""
@@ -57,8 +58,8 @@ class DownloadStatusTracker:
         self.logger.info(f"Album added: {title} (ID: {album_id})")
         
     def add_track(self, track_id: str, album_id: str, title: str, position: str, length: Optional[str] = None,
-                 artist: Optional[str] = None, album: Optional[str] = None, track: Optional[str] = None,
+                 artist: Optional[str] = None, album_name: Optional[str] = None, track_num: Optional[str] = None,
                  disc: Optional[str] = None, year: Optional[str] = None, albumartist: Optional[str] = None) -> None:
         """Ajoute une piste à la base de données avec tous les tags utiles."""
-        self.db.add_track(track_id, album_id, title, position, length, artist, album, track, disc, year, albumartist)
+        self.db.add_track(track_id, album_id, title, position, length, artist, album_name, track_num, disc, year, albumartist)
         self.logger.info(f"Track added: {title} (ID: {track_id})")

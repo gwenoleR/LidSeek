@@ -10,6 +10,7 @@ slskd_config/
 /formatted_songs/
 /app/logs/
 /data/
+pgdata/
 
 # Python temporary files and caches
 **/__pycache__/

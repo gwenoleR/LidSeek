@@ -1,9 +1,8 @@
-import sqlite3
 from datetime import datetime
 from enum import Enum
-import os
-import app.migrate
-
+from app.db import SessionLocal
+from app.utils.logger import setup_logger
+from app.models import Artist, Album, Track, AlbumBlacklistSource
 
 class DownloadStatus(Enum):
     PENDING = "pending"
@@ -12,309 +11,195 @@ class DownloadStatus(Enum):
     ERROR = "error"
 
 class Database:
-    def __init__(self, db_path="data/downloads.db"):
-        self.db_path = db_path
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)  # Create folder if needed
-        self.init_db()
-        app.migrate.run_migrations()
+    def __init__(self):
+        self.session = SessionLocal()
+        self.logger = setup_logger('database', 'database.log')
 
-    def init_db(self):
-        """Initialise la base de données avec les tables nécessaires."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Artists table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS artists (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Albums table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS albums (
-                    id TEXT PRIMARY KEY,
-                    artist_id TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    release_date TEXT,
-                    cover_url TEXT,
-                    status TEXT DEFAULT 'pending',
-                    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    download_date TIMESTAMP,
-                    source_username TEXT,
-                    FOREIGN KEY (artist_id) REFERENCES artists (id)
-                )
-            ''')
-
-            # Tracks table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS tracks (
-                    id TEXT PRIMARY KEY,
-                    album_id TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    position TEXT,
-                    length INTEGER,
-                    status TEXT DEFAULT 'pending',
-                    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    download_date TIMESTAMP,
-                    local_path TEXT,
-                    slsk_id TEXT,
-                    artist TEXT, 
-                    album TEXT, 
-                    track TEXT, 
-                    disc TEXT, 
-                    year TEXT, 
-                    albumartist TEXT,
-                    FOREIGN KEY (album_id) REFERENCES albums (id)
-                )
-            ''')
-            # Album source user blacklist
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS album_blacklist_sources (
-                    album_id TEXT NOT NULL,
-                    username TEXT NOT NULL,
-                    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (album_id, username)
-                )
-            ''')
-
-            conn.commit()
-
-    def set_album_source_username(self, album_id, username):
-        """Enregistre le user slskd source pour un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE albums SET source_username = ? WHERE id = ?
-            ''', (username, album_id))
-            conn.commit()
-
-    def get_album_source_username(self, album_id):
-        """Récupère le user slskd source pour un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT source_username FROM albums WHERE id = ?
-            ''', (album_id,))
-            row = cursor.fetchone()
-            return row[0] if row and row[0] else None
-        
     def add_artist(self, artist_id, name):
-        """Ajoute ou met à jour un artiste."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO artists (id, name)
-                VALUES (?, ?)
-            ''', (artist_id, name))
-            conn.commit()
-
-    def add_blacklisted_source(self, album_id, username):
-        """Ajoute un user slskd à la blacklist pour un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR IGNORE INTO album_blacklist_sources (album_id, username)
-                VALUES (?, ?)
-            ''', (album_id, username))
-            conn.commit()
-
-    def get_blacklisted_sources(self, album_id):
-        """Retourne la liste des users slskd blacklistés pour un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT username FROM album_blacklist_sources WHERE album_id = ?
-            ''', (album_id,))
-            return [row[0] for row in cursor.fetchall()]
+        artist = self.session.get(Artist, artist_id)
+        if artist:
+            artist.name = name
+        else:
+            artist = Artist(id=artist_id, name=name)
+            self.logger.info(f"add_artist: type(artist)={type(artist)} value={artist}")
+            if not hasattr(artist, '_sa_instance_state'):
+                self.logger.error(f"add_artist: Invalid type passed to session.add: {type(artist)} value={artist}")
+                raise TypeError(f"add_artist: Expected SQLAlchemy model instance, got {type(artist)}")
+            self.session.add(artist)
+        self.session.commit()
+        self.logger.info(f"add_artist: committed for id={artist_id}")
 
     def add_album(self, album_id, artist_id, title, release_date=None, cover_url=None):
-        """Ajoute ou met à jour un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO albums (id, artist_id, title, release_date, cover_url, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (album_id, artist_id, title, release_date, cover_url, DownloadStatus.PENDING.value))
-            conn.commit()
+        album = self.session.get(Album, album_id)
+        if album:
+            album.title = title
+            album.release_date = release_date
+            album.cover_url = cover_url
+        else:
+            album = Album(id=album_id, artist_id=artist_id, title=title, release_date=release_date, cover_url=cover_url)
+            self.logger.info(f"add_album: type(album)={type(album)} value={album}")
+            if not hasattr(album, '_sa_instance_state'):
+                self.logger.error(f"add_album: Invalid type passed to session.add: {type(album)} value={album}")
+                raise TypeError(f"add_album: Expected SQLAlchemy model instance, got {type(album)}")
+            self.session.add(album)
+        self.session.commit()
+        # Vérifie que l'album est bien présent après commit
+        album_check = self.session.get(Album, album_id)
+        if album_check:
+            self.logger.info(f"add_album: commit OK, album present in DB (id={album_id})")
+        else:
+            self.logger.error(f"add_album: commit FAIL, album NOT present in DB (id={album_id})")
 
-    def add_track(self, track_id, album_id, title, position=None, length=None, artist=None, album=None, track=None, disc=None, year=None, albumartist=None):
-        """Ajoute ou met à jour une piste avec tags."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO tracks (
-                    id, album_id, title, position, length, status,
-                    artist, album, track, disc, year, albumartist
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                track_id, album_id, title, position, length, DownloadStatus.PENDING.value,
-                artist, album, track, disc, year, albumartist
-            ))
-            conn.commit()
+    def add_track(self, track_id, album_id, title, position=None, length=None, artist=None, album_name=None, track_num=None, disc=None, year=None, albumartist=None):
+        track_obj = self.session.get(Track, track_id)
+        if track_obj:
+            track_obj.title = title
+            track_obj.position = position
+            track_obj.length = length
+            track_obj.artist = artist
+            track_obj.album_name = album_name
+            track_obj.track = track_num
+            track_obj.disc = disc
+            track_obj.year = year
+            track_obj.albumartist = albumartist
+        else:
+            self.logger.info(f"Track not found on DB. Create it.")
+            self.logger.info(f"id={track_id}, album_id={album_id}, title={title}, position={position}, length={length}, artist={artist}, album_name={album_name}, track={track_num}, disc={disc}, year={year}, albumartist={albumartist}")
+            track_obj = Track(id=track_id, album_id=album_id, title=title, position=position, length=length, artist=artist, album_name=album_name, track=track_num, disc=disc, year=year, albumartist=albumartist)
+            self.logger.info(f"add_track: type(track_obj)={type(track_obj)} value={track_obj}")
+            if not hasattr(track_obj, '_sa_instance_state'):
+                self.logger.error(f"add_track: Invalid type passed to session.add: {type(track_obj)} value={track_obj}")
+                raise TypeError(f"add_track: Expected SQLAlchemy model instance, got {type(track_obj)}")
+            self.session.add(track_obj)
+        self.session.commit()
+        self.logger.info(f"add_track: committed for id={track_id}")
+
+    def add_blacklisted_source(self, album_id, username):
+        bl = self.session.query(AlbumBlacklistSource).filter_by(album_id=album_id, username=username).first()
+        if not bl:
+            bl = AlbumBlacklistSource(album_id=album_id, username=username)
+            self.logger.info(f"add_blacklisted_source: type(bl)={type(bl)} value={bl}")
+            if not hasattr(bl, '_sa_instance_state'):
+                self.logger.error(f"add_blacklisted_source: Invalid type passed to session.add: {type(bl)} value={bl}")
+                raise TypeError(f"add_blacklisted_source: Expected SQLAlchemy model instance, got {type(bl)}")
+            self.session.add(bl)
+            self.session.commit()
+
+    def get_blacklisted_sources(self, album_id):
+        return [bl.username for bl in self.session.query(AlbumBlacklistSource).filter_by(album_id=album_id).all()]
+
+    def set_album_source_username(self, album_id, username):
+        album = self.session.get(Album, album_id)
+        if album:
+            album.source_username = username
+            self.session.commit()
+
+    def get_album_source_username(self, album_id):
+        album = self.session.get(Album, album_id)
+        return album.source_username if album and album.source_username else None
 
     def update_track_status(self, track_id, status, local_path=None, slsk_id=None):
-        """Met à jour le statut d'une piste."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            if status == DownloadStatus.COMPLETED:
-                cursor.execute('''
-                    UPDATE tracks 
-                    SET status = ?, download_date = ?, local_path = ?, slsk_id = ?
-                    WHERE id = ?
-                ''', (status.value, datetime.now(), local_path, slsk_id, track_id))
-            else:
-                cursor.execute('''
-                    UPDATE tracks 
-                    SET status = ?, slsk_id = ?
-                    WHERE id = ?
-                ''', (status.value, slsk_id , track_id))
-            conn.commit()
+        track = self.session.get(Track, track_id)
+        if not track:
+            return
+        track.status = status.value
+        if status == DownloadStatus.COMPLETED:
+            track.download_date = datetime.now()
+            track.local_path = local_path
+            track.slsk_id = slsk_id
+        else:
+            track.slsk_id = slsk_id
+        self.session.commit()
 
     def update_album_status(self, album_id, status):
-        """Met à jour le statut d'un album."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            if status == DownloadStatus.COMPLETED:
-                cursor.execute('''
-                    UPDATE albums 
-                    SET status = ?, download_date = ?
-                    WHERE id = ?
-                ''', (status.value, datetime.now(), album_id))
-            else:
-                cursor.execute('''
-                    UPDATE albums 
-                    SET status = ?
-                    WHERE id = ?
-                ''', (status.value, album_id))
-            conn.commit()
+        album = self.session.get(Album, album_id)
+        if not album:
+            self.logger.error(f"update_album_status: Album not found for id={album_id} (status={status})")
+            return
+        album.status = status.value
+        if status == DownloadStatus.COMPLETED:
+            album.download_date = datetime.now()
+        self.session.commit()
 
     def get_pending_tracks(self):
-        """Récupère toutes les pistes en attente de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT t.id, t.album_id, t.title, t.position, a.artist_id, ar.name
-                FROM tracks t
-                JOIN albums a ON t.album_id = a.id
-                JOIN artists ar ON a.artist_id = ar.id
-                WHERE t.status = ?
-            ''', (DownloadStatus.PENDING.value,))
-            return cursor.fetchall()
+        # Retourne (track_id, album_id, title, position, artist_id, artist_name)
+        q = (
+            self.session.query(Track.id, Track.album_id, Track.title, Track.position, Album.artist_id, Artist.name)
+            .join(Album, Track.album_id == Album.id)
+            .join(Artist, Album.artist_id == Artist.id)
+            .filter(Track.status == DownloadStatus.PENDING.value)
+        )
+        return q.all()
 
     def get_pending_albums(self):
-        """Récupère tous les albums en attente de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    a.id, a.title, a.artist_id,
-                    ar.name as artist_name,
-                    t.id as track_id, t.title as track_title,
-                    t.position as track_position
-                FROM albums a
-                JOIN artists ar ON a.artist_id = ar.id
-                JOIN tracks t ON a.id = t.album_id
-                WHERE a.status = ?
-                ORDER BY a.added_date, t.position
-            ''', (DownloadStatus.PENDING.value,))
-            
-            results = cursor.fetchall()
-            albums = {}
-            
-            for row in results:
-                album_id = row['id']
-                if album_id not in albums:
-                    albums[album_id] = {
-                        'id': album_id,
-                        'title': row['title'],
-                        'artist_name': row['artist_name'],
-                        'artist_id': row['artist_id'],
-                        'tracks': []
-                    }
-                
-                albums[album_id]['tracks'].append({
-                    'id': row['track_id'],
-                    'title': row['track_title'],
-                    'position': row['track_position']
-                })
-            
-            return list(albums.values())
+        # Retourne une liste de dicts avec id, title, artist_name, artist_id, tracks[]
+        q = (
+            self.session.query(Album, Artist, Track)
+            .join(Artist, Album.artist_id == Artist.id)
+            .join(Track, Album.id == Track.album_id)
+            .filter(Album.status == DownloadStatus.PENDING.value)
+            .order_by(Album.added_date, Track.position)
+        )
+        albums = {}
+        for album, artist, track in q:
+            if album.id not in albums:
+                albums[album.id] = {
+                    'id': album.id,
+                    'title': album.title,
+                    'artist_name': artist.name,
+                    'artist_id': artist.id,
+                    'tracks': []
+                }
+            albums[album.id]['tracks'].append({
+                'id': track.id,
+                'title': track.title,
+                'position': track.position
+            })
+        return list(albums.values())
 
     def get_downloading_albums(self):
-        """Récupère tous les albums en cours de téléchargement."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    a.id, a.title, a.artist_id, a.release_date,
-                    ar.name as artist_name
-                FROM albums a
-                JOIN artists ar ON a.artist_id = ar.id
-                WHERE a.status = ?
-            ''', (DownloadStatus.DOWNLOADING.value,))
-            
-            return [dict(row) for row in cursor.fetchall()]
+        # Retourne une liste de dicts avec id, title, artist_id, release_date, artist_name
+        q = (
+            self.session.query(Album, Artist)
+            .join(Artist, Album.artist_id == Artist.id)
+            .filter(Album.status == DownloadStatus.DOWNLOADING.value)
+        )
+        return [
+            {
+                'id': album.id,
+                'title': album.title,
+                'artist_id': album.artist_id,
+                'release_date': album.release_date,
+                'artist_name': artist.name
+            }
+            for album, artist in q
+        ]
 
     def get_album_status(self, album_id):
-        """Récupère le statut d'un album et ses pistes."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    a.id, a.title, a.status,
-                    COUNT(t.id) as total_tracks,
-                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_tracks
-                FROM albums a
-                LEFT JOIN tracks t ON a.id = t.album_id
-                WHERE a.id = ?
-                GROUP BY a.id
-            ''', (album_id,))
-            return cursor.fetchone()
+        # Retourne (id, title, status, total_tracks, completed_tracks)
+        album = self.session.get(Album, album_id)
+        if not album:
+            return None
+        total_tracks = len(album.tracks)
+        completed_tracks = sum(1 for t in album.tracks if t.status == DownloadStatus.COMPLETED.value)
+        return (album.id, album.title, album.status, total_tracks, completed_tracks)
 
     def get_tracks_status(self, album_id):
-        """Récupère le statut de toutes les pistes d'un album.
-        
-        Args:
-            album_id: L'identifiant de l'album
-            
-        Returns:
-            Un dictionnaire avec les clés étant les IDs des pistes et les valeurs contenant
-            'status', 'local_path', 'position' et 'title'
-        """
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT id, status, local_path, position, title, slsk_id
-                FROM tracks
-                WHERE album_id = ?
-            ''', (album_id,))
-            return {row[0]: {
-                'status': row[1], 
-                'local_path': row[2],
-                'position': row[3],
-                'title': row[4],
-                'slsk_id': row[5]
-            } for row in cursor.fetchall()}
+        # Retourne {track_id: {status, local_path, position, title, slsk_id}}
+        tracks = self.session.query(Track).filter_by(album_id=album_id).all()
+        return {
+            t.id: {
+                'status': t.status,
+                'local_path': t.local_path,
+                'position': t.position,
+                'title': t.title,
+                'slsk_id': t.slsk_id
+            }
+            for t in tracks
+        }
 
     def cancel_download(self, album_id):
-        """Annule le téléchargement d'un album et de ses pistes."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Delete album tracks
-            cursor.execute('''
-                DELETE FROM tracks
-                WHERE album_id = ?
-            ''', (album_id,))
-            
-            # Delete album
-            cursor.execute('''
-                DELETE FROM albums
-                WHERE id = ?
-            ''', (album_id,))
-            conn.commit()
+        # Supprime les pistes puis l'album
+        self.session.query(Track).filter_by(album_id=album_id).delete()
+        self.session.query(Album).filter_by(id=album_id).delete()
+        self.session.commit()

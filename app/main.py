@@ -1,3 +1,7 @@
+import time
+from sqlalchemy.exc import OperationalError
+from app.db import engine
+from app.models import Base
 import redis
 import os
 from flask import Flask, render_template
@@ -14,6 +18,17 @@ from app.routes.library_routes import library_routes, init_routes as init_librar
 import atexit
 
 def create_app():
+    # Initialise la base de données (crée les tables si besoin) avec retry si Postgres n'est pas prêt
+    max_retries = 15
+    for attempt in range(max_retries):
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except OperationalError as e:
+            print(f"[DB INIT] Tentative {attempt+1}/{max_retries} : Base non disponible, attente...")
+            time.sleep(2)
+    else:
+        raise RuntimeError("Impossible de se connecter à la base de données après plusieurs tentatives.")
     app = Flask(__name__)
     
     # Initialize services
@@ -23,7 +38,7 @@ def create_app():
         decode_responses=True
     )
     
-    db = Database(os.path.join(os.path.dirname(__file__), 'data', 'downloads.db'))
+    db = Database()
     musicbrainz_service = MusicBrainzService(
         Config.USER_AGENT,
         redis_client,
