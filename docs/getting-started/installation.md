@@ -37,10 +37,22 @@ services:
     volumes:
       - ./music_downloads:/downloads
       - ./formatted_songs:/formatted_songs
-      - ./app/data:/app/app/data
     depends_on:
       - redis
       - slskd
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./app/pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   redis:
@@ -74,6 +86,13 @@ services:
 USER_AGENT_NAME=LidSeek
 USER_AGENT_VERSION=1.0.0
 USER_AGENT_EMAIL=contact@email.com
+
+# Database
+POSTGRES_DB=lidseek
+POSTGRES_USER=lidseek
+POSTGRES_PASSWORD=lidseek
+DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
 
 # Download check interval (in seconds)
 DOWNLOAD_CHECK_INTERVAL=5

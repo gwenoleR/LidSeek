@@ -12,10 +12,22 @@ services:
     volumes:
       - ./music_downloads:/downloads
       - ./formatted_songs:/formatted_songs
-      - ./app/data:/app/app/data
     depends_on:
       - redis
       - slskd
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./app/pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   redis:
