@@ -108,6 +108,11 @@ SLSKD_MIN_MATCH_RATIO=0.5
 
 # Destination folder for formatted files
 FORMATTED_SONGS_DIR=/formatted_songs
+
+LOG_LEVEL=INFO
+JSON_LOGS=true
+CONSOLE_LOGS=false
+LOG_DIR=/app/app/logs
 ```
 
 ## soulseek.yml

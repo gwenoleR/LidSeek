@@ -4,7 +4,7 @@ import unicodedata
 import slskd_api
 import time
 import difflib
-from app.utils.logger import setup_logger
+from app.utils.logger import setup_logger, with_context
 from enum import Enum
 import os
 from typing import List, Dict, Optional
@@ -156,7 +156,8 @@ class SlskdDownloader(Downloader):
             username: Nom de l'utilisateur source
             files: Liste des fichiers à télécharger (objets SlskFile)
         """
-        self.logger.info(f"Starting download of {len(files)} files from {username}")
+        log = with_context(self.logger, slsk_user=username)
+        log.info(f"Starting download of {len(files)} files from {username}")
         try:
             # Convert SlskFile to dictionaries for the API
             files_data = [{'filename': f"{os.path.normpath(directory)}\\{f.filename}", 'size': f.size} for f in files]
@@ -237,8 +238,8 @@ class SlskdDownloader(Downloader):
             Liste des fichiers avec leur statut, vide si non trouvé
         """
         downloads = self.get_downloads_status()
-        self.logger.info(f"Searching for folder containing '{directory_name}' in downloads")
-        self.logger.info(f"Number of active downloads: {len(downloads)}")
+        self.logger.debug(f"Searching for folder containing '{directory_name}' in downloads")
+        self.logger.debug(f"Number of active downloads: {len(downloads)}")
         
         # Clean the searched name
         def normalize_str(s):
@@ -248,21 +249,22 @@ class SlskdDownloader(Downloader):
             return ''.join(c.lower() for c in s if c.isalnum())
 
         clean_search = normalize_str(directory_name)
-        self.logger.info(f"Cleaned name for search: '{clean_search}'")
+        self.logger.debug(f"Cleaned name for search: '{clean_search}'")
         
         for download in downloads:
-            self.logger.info(f"Download from {download.get('username', 'unknown')}:" )
+            self.logger.debug(f"Download from {download.get('username', 'unknown')}:" )
             for directory in download.get('directories', []):
                 dir_path = directory.get('directory', '')
-                self.logger.info(f"  - Folder found: '{dir_path}'")
+                self.logger.debug(f"  - Folder found: '{dir_path}'")
                 
                 # Clean the target folder name for comparison
                 clean_dir = normalize_str(dir_path)
-                self.logger.info(f"  - Cleaned folder name: '{clean_dir}'")
+                self.logger.debug(f"  - Cleaned folder name: '{clean_dir}'")
                 
                 # Check if the searched name is in the folder name
                 if clean_search in clean_dir:
-                    self.logger.info(f"  => Match found! '{dir_path}' contains '{directory_name}'")
+                    log = with_context(self.logger, slsk_user=download.get('username', 'unknown'))
+                    log.info(f"  => Match found! '{dir_path}' contains '{directory_name}'")
                     return directory.get('files', [])
                         
         self.logger.warning(f"No folder found containing '{directory_name}'")

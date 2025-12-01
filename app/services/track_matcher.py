@@ -1,7 +1,7 @@
 import difflib
 import re
 from typing import List, Dict
-from app.utils.logger import setup_logger
+from app.utils.logger import setup_logger, with_context
 from app.services.slsk_models import SlskDirectory, SlskFile
 
 class TrackMatcher:
@@ -73,13 +73,15 @@ class TrackMatcher:
                     best_match = file
             
             if best_match and best_match not in matching_files.values():
-                self.logger.info(f"Match found: Track ID '{track_id}' - '{track_title}' -> '{best_match.filename}' (ratio: {best_ratio:.2f})")
+                log = with_context(self.logger, track_mbid=track_id, track_title=track_title)
+                log.info(f"Match found: '{best_match.filename}' (ratio: {best_ratio:.2f})")
                 matching_files[track_id] = best_match
                 matched_tracks.add(track_title)
         
         # Log tracks not found
         unmatched = [t.get('title') for t in wanted_tracks if t.get('title') not in matched_tracks]
         if unmatched:
-            self.logger.warning(f"Tracks not found: {', '.join(unmatched)}")
+            if unmatched:
+                self.logger.info(f"Tracks not found: {', '.join(unmatched)}")
             
         return matching_files

@@ -1,5 +1,6 @@
 from app.database import Database, DownloadStatus
-from app.utils.logger import setup_logger
+from app.utils.logger import setup_logger, with_context
+import uuid
 from typing import Dict, List
 import os
 from app.config.settings import Config
@@ -105,6 +106,15 @@ class DownloadManager:
     def _start_album_download(self, album: dict) -> bool:
         """Démarre le téléchargement d'un album."""
         try:
+            # Per-album correlation and context logger
+            corr_id = str(uuid.uuid4())
+            log = with_context(
+                self.logger,
+                correlation_id=corr_id,
+                album_mbid=album.get('id'),
+                album_title=album.get('title'),
+                artist_name=album.get('artist_name')
+            )
             # Check if the album is not already in progress
             downloads = self.downloader.get_downloads_status()
             for download in downloads:
@@ -119,17 +129,17 @@ class DownloadManager:
             blacklisted_users = self.status_tracker.db.get_blacklisted_sources(album['id'])
             search_results = self.downloader.search(query)
             for r in search_results:
-                self.logger.debug(r)
+                log.debug(r)
             if not search_results:
-                self.logger.warning(f"No result found for search: {query}")
+                log.info(f"No result found for search: {query}")
                 # Try searching with only the album title
                 query_title_only = album['title']
-                self.logger.info(f"Retrying search with title only: {query_title_only}")
+                log.debug(f"Retrying search with title only: {query_title_only}")
                 search_results = self.downloader.search(query_title_only)
                 for r in search_results:
-                    self.logger.debug(r)
+                    log.debug(r)
                 if not search_results:
-                    self.logger.warning(f"No result found for search: {query_title_only}")
+                    log.info(f"No result found for search: {query_title_only}")
                     return False
 
             best_result = None
@@ -152,7 +162,7 @@ class DownloadManager:
                 try:
                     # For the first valid file, get its parent folder
                     directory_path = valid_files[0].get_dir_name()
-                    self.logger.info(f"Getting folder content: {directory_path}")
+                    log.debug(f"Getting folder content: {directory_path}")
                     
                     # Get all files in the folder
                     directory_files = self.downloader.get_directory_content(result.username, directory_path)
@@ -168,9 +178,9 @@ class DownloadManager:
 
                     # Log found files for debugging
                     if matching_files:
-                        self.logger.debug(f"Matching files found ({len(matching_files)}):")
+                        log.debug(f"Matching files found ({len(matching_files)}):")
                         for track_id, file in matching_files.items():
-                            self.logger.debug(f"  - Track ID: {track_id} -> {file.filename}")
+                            log.debug(f"  - Track ID: {track_id} -> {file.filename}")
 
                     if matching_files and len(matching_files) > best_match_count:
                         best_directory_path = directory_path
@@ -178,24 +188,25 @@ class DownloadManager:
                         best_match_count = len(matching_files)
                         best_files = matching_files.values()
                         for track_id, file in matching_files.items():
-                            self.status_tracker.update_track_status(track_id,DownloadStatus.PENDING,None,file.filename)
+                            self.status_tracker.update_track_status(track_id, DownloadStatus.PENDING, None, file.filename)
 
                 except Exception as e:
-                    self.logger.warning(f"Error processing files from {result.username}: {str(e)}")
+                    log.error(f"Error processing files from {result.username}: {str(e)}")
                     continue
 
             # Start downloading the best result
-            self.logger.debug(matching_files)
+            log.debug(matching_files)
             if best_result and best_match_count > 0:
-                self.logger.info(f"Starting download with {best_result.username} ({best_match_count} files)")
+                log.info(f"Starting download with {best_result.username} ({best_match_count} files)")
                 self.status_tracker.db.set_album_source_username(album['id'], best_result.username)
                 return self.downloader.start_download(best_result.username, best_directory_path, best_files)
 
-            self.logger.warning(f"No match found for album: {album['title']}")
+            log.info(f"No match found for album: {album['title']}")
             return False
 
         except Exception as e:
-            self.logger.error(f"Error starting download: {str(e)}")
+            # Keep stack trace on base logger; include album context
+            self.logger.error(f"Error starting download: {str(e)}", extra={'album_mbid': album.get('id'), 'album_title': album.get('title')})
             self.logger.exception("Full stack trace:")
             return False
 
